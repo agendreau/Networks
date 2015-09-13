@@ -1,0 +1,124 @@
+Content-Type: multipart/related; boundary="0-1327589706-1225214425=:7633"
+
+--0-1327589706-1225214425=:7633
+Content-Type: text/html; charset=us-ascii
+
+<table cellspacing="0" cellpadding="0" border="0" ><tr><td valign="top" style="font: inherit;">thx manu, So does this mean InterprocedureCFG ALWAYS produce a NON-"context insensitive " CFG and the only way to analyze the Interprocedure Control Flow (taken into account of the data-dependency), is to use the slicer?<BR><BR>--- On <B>Tue, 10/28/08, Manu Sridharan <I>&lt;msridhar@us.ibm.com&gt;</I></B> wrote:<BR>
+<BLOCKQUOTE style="PADDING-LEFT: 5px; MARGIN-LEFT: 5px; BORDER-LEFT: rgb(16,16,255) 2px solid">From: Manu Sridharan &lt;msridhar@us.ibm.com&gt;<BR>Subject: Re: [Wala-wala] The use of DFSPathFinder on InterprocedureCFG<BR>To: "WALA discussion and Q&amp;A" &lt;wala-wala@lists.sourceforge.net&gt;<BR>Date: Tuesday, October 28, 2008, 1:12 PM<BR><BR>
+<DIV id=yiv403874490>
+<DIV>A DFS of an interprocedural CFG does *not* yield a context-sensitive result. If you want to track data dependence in a context-sensitive manner, I think you'd want to use the slicer. See the class <TT>com.ibm.wala.core.tests.slicer</TT>.<TT>SlicerTest</TT> for examples on how to use the slicer.<BR><BR>-Manu<BR><BR><BR><IMG height=16 alt="Inactive hide details for dongyu sun ---10/28/2008 01:06:58 PM-----------------------------------------------------------------" src="cid:1.2208623833@web62503.mail.re1.yahoo.com" width=16 border=0><FONT color=#424282>dongyu sun ---10/28/2008 01:06:58 PM----------------------------------------------------------------------------</FONT><BR><BR>
+<TABLE cellSpacing=0 cellPadding=0 width="100%" border=0>
+<TBODY>
+<TR vAlign=top>
+<TD style="BACKGROUND-IMAGE: url(cid:2__=0ABBFE63DFCDA3028f9e8a93df938@us.ibm.com); BACKGROUND-REPEAT: no-repeat" width="40%">
+<UL>
+<UL>
+<UL>
+<UL><B><FONT size=2>dongyu sun &lt;sundongyu@yahoo.com&gt;</FONT></B><FONT size=2> </FONT>
+<DIV><FONT size=2>10/28/2008 01:05 PM</FONT> 
+<TABLE border=1>
+<TBODY>
+<TR vAlign=top>
+<TD width=168 bgColor=#ffffff>
+<DIV align=center><FONT size=2>Please respond to<BR>WALA discussion and Q&amp;A &lt;wala-wala@lists.sourceforge.net&gt;</FONT></DIV></TD></TR></TBODY></TABLE></DIV></UL></UL></UL></UL></TD>
+<TD width="60%">
+<TABLE cellSpacing=0 cellPadding=0 width="100%" border=0>
+<TBODY>
+<TR vAlign=top>
+<TD width="1%"><IMG height=1 alt="" src="cid:2.2208623833@web62503.mail.re1.yahoo.com" width=58 border=0><BR>
+<DIV align=right><FONT size=2>To</FONT></DIV></TD>
+<TD width="100%"><IMG height=1 alt="" src="cid:2.2208623833@web62503.mail.re1.yahoo.com" width=1 border=0><BR><FONT size=2>WALA discussion and Q&amp;A &lt;wala-wala@lists.sourceforge.net&gt;</FONT></TD></TR>
+<TR vAlign=top>
+<TD width="1%"><IMG height=1 alt="" src="cid:2.2208623833@web62503.mail.re1.yahoo.com" width=58 border=0><BR>
+<DIV align=right><FONT size=2>cc</FONT></DIV></TD>
+<TD width="100%"><IMG height=1 alt="" src="cid:2.2208623833@web62503.mail.re1.yahoo.com" width=1 border=0><BR></TD></TR>
+<TR vAlign=top>
+<TD width="1%"><IMG height=1 alt="" src="cid:2.2208623833@web62503.mail.re1.yahoo.com" width=58 border=0><BR>
+<DIV align=right><FONT size=2>Subject</FONT></DIV></TD>
+<TD width="100%"><IMG height=1 alt="" src="cid:2.2208623833@web62503.mail.re1.yahoo.com" width=1 border=0><BR><FONT size=2>Re: [Wala-wala] The use of DFSPathFinder on InterprocedureCFG</FONT></TD></TR></TBODY></TABLE>
+<TABLE cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR vAlign=top>
+<TD width=58><IMG height=1 alt="" src="cid:2.2208623833@web62503.mail.re1.yahoo.com" width=1 border=0></TD>
+<TD width=336><IMG height=1 alt="" src="cid:2.2208623833@web62503.mail.re1.yahoo.com" width=1 border=0></TD></TR></TBODY></TABLE></TD></TR></TBODY></TABLE>
+<TABLE cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR vAlign=top>
+<TD width=761><FONT size=4>Hi,</FONT><BR><FONT size=4>Just elaborate a bit, what I did is </FONT><BR><FONT size=4></FONT><BR><FONT size=4>1./ Create a CallGraph with </FONT>com.ibm.wala.ipa.callgraph.impl.<BR>makeVanillaZeroOneCFABuilder<BR><BR>2../ Create a InterproceduralCFG using CallGraph created in step 1<BR><BR>3./ Then use DSFPathFinder to search thru this graph in step 2.<BR><BR><BR>So after step 1, 2, should I expect a context sensitive InterprocedureCFG or I need to do extra step??<BR><BR>thx<BR>dongyu<BR><FONT size=4><BR><BR>--- On </FONT><B><FONT size=4>Tue, 10/28/08, dongyu sun </FONT></B><B><I><FONT size=4>&lt;sundongyu@yahoo.com&gt;</FONT></I></B><FONT size=4> wrote:</FONT><BR><FONT size=4>From: dongyu sun &lt;sundongyu@yahoo.com&gt;<BR>Subject: Re: [Wala-wala] The use of DFSPathFinder on InterprocedureCFG<BR>To: "WALA discussion and Q&amp;A" &lt;wala-wala@lists.sourceforge.net&gt;<BR>Cc: "Tan Hee Beng Kuan"
+ &lt;ibktan@ntu.edu.sg&gt;<BR>Date: Tuesday, October 28, 2008, 3:05 AM<BR></FONT><BR><BR>
+<TABLE cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR vAlign=top>
+<TD width=761><FONT size=4>thx stephen. But when I construct the CallGraph, I create using </FONT><BR>Util.<I>makeVanillaZeroOneCFABuilder</I><BR><FONT size=4></FONT><BR><FONT size=4>Should it be already a context sensitive CFA??</FONT><BR><FONT size=4></FONT><BR><FONT size=4>If above does not meant to create the context sensitive InterprcoCFG, how to build one? As in our program analysis, I need to analze how different variable are defined and used as such a context sensitive InterprocCfa is needed...</FONT><BR><FONT size=4></FONT><BR><FONT size=4>thanks</FONT><BR><FONT size=4>donny</FONT><BR><FONT size=4><BR><BR>--- On </FONT><B><FONT size=4>Mon, 10/27/08, Stephen Fink </FONT></B><B><I><FONT size=4>&lt;sjfink@us.ibm.com&gt;</FONT></I></B><FONT size=4> wrote:</FONT><BR><FONT size=4>From: Stephen Fink &lt;sjfink@us.ibm.com&gt;<BR>Subject: Re: [Wala-wala] The use of DFSPathFinder on InterprocedureCFG<BR>To: "WALA discussion and Q&amp;A"
+ &lt;wala-wala@lists.sourceforge.net&gt;<BR>Date: Monday, October 27, 2008, 3:48 PM<BR></FONT><BR><BR>I think the issue here is that the interprocedural CFG is not context-sensitive, so you are finding a path which is infeasible according to matched call-return pairs. Specifically, you are finding a path in the IPCFG as follows:<FONT size=4> <BR></FONT><BR>1) sayHello calls say1<FONT size=4> </FONT><BR>2) say1 calls println<FONT size=4> </FONT><BR>3) println returns to the the 'else' branch of sayHello<FONT size=4> </FONT><BR>4) sayHello calls say2<FONT size=4> <BR></FONT><BR>which is a path in the IPCFG, but infeasible since the call 2) is unmatched with the return 3).<FONT size=4> <BR></FONT><BR>SJF<BR>------------------------------------------------------------------------<BR>Stephen Fink<BR>IBM T.J. Watson Research Center<BR>sjfink@us.ibm.com<BR>(914)784-7776<FONT size=4><BR><BR><BR></FONT><BR><BR>
+<TABLE cellSpacing=0 cellPadding=0 width="100%" border=0>
+<TBODY>
+<TR vAlign=top>
+<TD width="48%"><B><FONT size=2>dongyu sun &lt;sundongyu@yahoo.com&gt;</FONT></B><FONT size=2> </FONT><BR><FONT size=2>10/27/2008 02:06 PM</FONT><FONT size=4> </FONT><BR><BR>
+<TABLE border=1>
+<TBODY>
+<TR vAlign=top>
+<TD width=332 bgColor=#ffffff>
+<DIV align=center><FONT size=2>Please respond to<BR>WALA discussion and Q&amp;A &lt;wala-wala@lists.sourceforge.net&gt;</FONT></DIV></TD></TR></TBODY></TABLE></TD>
+<TD width="52%">
+<TABLE cellSpacing=0 cellPadding=0 width="100%" border=0>
+<TBODY>
+<TR vAlign=top>
+<TD width="12%">
+<DIV align=right><FONT size=2>To</FONT></DIV></TD>
+<TD width="88%"><FONT size=2>wala-wala@lists.sourceforge.net</FONT><FONT size=4> </FONT></TD></TR>
+<TR vAlign=top>
+<TD width="12%">
+<DIV align=right><FONT size=2>cc</FONT></DIV></TD>
+<TD width="88%"><IMG height=1 alt="" src="cid:2.2208623833@web62503.mail.re1.yahoo.com" width=1 border=0></TD></TR>
+<TR vAlign=top>
+<TD width="12%">
+<DIV align=right><FONT size=2>Subject</FONT></DIV></TD>
+<TD width="88%"><FONT size=2>[Wala-wala] The use of DFSPathFinder on InterprocedureCFG</FONT></TD></TR></TBODY></TABLE><BR>
+<TABLE cellSpacing=0 cellPadding=0 border=0>
+<TBODY>
+<TR vAlign=top>
+<TD width=5><IMG height=1 alt="" src="cid:2.2208623833@web62503.mail.re1.yahoo.com" width=1 border=0></TD>
+<TD width=5><IMG height=1 alt="" src="cid:2.2208623833@web62503.mail.re1.yahoo.com" width=1 border=0></TD></TR></TBODY></TABLE></TD></TR></TBODY></TABLE><FONT size=4><BR><BR></FONT><BR><BR>
+<TABLE cellSpacing=0 cellPadding=0 width="100%" border=0>
+<TBODY>
+<TR vAlign=top>
+<TD width="100%"><FONT size=4>Hi, <BR><BR>I am testing the DFSPathFinder on a InterprocedureCFG. I have a simple test program like following <BR></FONT><BR><B><FONT color=#820040>public</FONT></B> <B><FONT color=#820040>class</FONT></B> HelloWorld { <BR><FONT color=#4040c2>/**</FONT> <BR><FONT color=#4040c2>*</FONT> <B><FONT color=#71b2cf>@param</FONT></B> <FONT color=#4040c2>args</FONT> <BR><FONT color=#4040c2>*/</FONT> <BR><B><FONT color=#820040>public</FONT></B> <B><FONT color=#820040>static</FONT></B> <B><FONT color=#820040>void</FONT></B> main(String[] args) { <BR><FONT color=#3f8080>// </FONT><B><FONT color=#71b2cf>TODO</FONT></B><FONT color=#3f8080> Auto-generated method stub</FONT> <BR>HelloWorld h=<B><FONT color=#820040>new</FONT></B> HelloWorld(); <BR><B><FONT color=#820040>int</FONT></B> i[]=<B><FONT color=#820040>new</FONT></B> <B><FONT color=#820040>int</FONT></B>[0]; <BR><B><FONT color=#820040>int</FONT></B> i2=i.<FONT
+ color=#0021bf>length</FONT>; <BR><B><FONT color=#820040>int</FONT></B> i3=i2; <BR><B><FONT color=#820040>int</FONT></B> i4=i3; <BR>i=<B><FONT color=#820040>null</FONT></B>; <BR>h.sayHello(<FONT color=#4200ff>"hi "</FONT>); <BR>} <BR><B><FONT color=#820040>public</FONT></B> <B><FONT color=#820040>void</FONT></B> sayHello(String greeting) <BR>{ <BR>TestClass testClas=<B><FONT color=#820040>new</FONT></B> TestClass(); <BR>String test=<FONT color=#4200ff>"test"</FONT>; <BR><B><FONT color=#820040>if</FONT></B>(greeting ==<FONT color=#4200ff>""</FONT>) <BR>{ <BR>System.<I><FONT color=#0021bf>out</FONT></I>.println(greeting);<FONT color=#3f8080> </FONT><BR><FONT color=#3f8080>// testClas.method1_1(greeting);</FONT> <BR>say1(); <BR>} <BR><B><FONT color=#820040>else</FONT></B> <BR>{ <BR>System.<I><FONT color=#0021bf>out</FONT></I>.println(test);<FONT color=#3f8080> </FONT><BR><FONT color=#3f8080>// testClas.method2(test);</FONT> <BR>say2(); <BR>} <BR>}
+ <BR><B><FONT color=#820040>void</FONT></B> say1() <BR>{ <BR>System.<I><FONT color=#0021bf>out</FONT></I>.println(<FONT color=#4200ff>"say1()"</FONT>); <BR>} <BR><B><FONT color=#820040>void</FONT></B> say2() <BR>{ <BR>System.<I><FONT color=#0021bf>out</FONT></I>.println(<FONT color=#4200ff>"say2()"</FONT>); <BR>} <BR>}<FONT size=4> </FONT><BR><FONT size=4></FONT><BR>I first constructed the InterprocedureCFG from the CallGraph, then I use the DSFPathFinder on this InterprocedureCFG to try to find any path between the call to say1() to the call to say2(). <BR>In above helloWorld class, as this two function call are on the two branches of the if statement, I didn't expect any path to exist between them, but suprisingly I got one path like following when run the DSFPathFinder. <BR><FONT size=4></FONT><BR>the line with issBlk===&gt;.. is produced by printing the toString() output of each of the <BR>BasicBlockInContext&lt;ISSABasicBlock&gt;<FONT size=4>
+ </FONT><BR><FONT size=4></FONT><BR>the line witn ins (...) is the toString() output of each instruction in each of the <BR>BasicBlockInContext&lt;ISSABasicBlock&gt;. the number in the bracket is the line number in the source code.<FONT size=4> </FONT><BR>---------------------------------------------------------------------<FONT size=4> </FONT><BR><FONT size=4></FONT><BR>issBlk===&gt;BB[SSA:12..13]5 - simple.HelloWorld.sayHello(Ljava/lang/String;)V <BR>ins ( 29 ): invokevirtual &lt; Application, Lsimple/HelloWorld, say1()V &gt; 1 @25 exception:13 <BR>def Value String : v13 <BR>use Value String : v1 <BR>loca name ( this ) <BR>issBlk===&gt;BB[SSA:-1..-2]0 - simple.HelloWorld.say1()V <BR>issBlk===&gt;BB[SSA:0..2]1 - simple.HelloWorld.say1()V <BR>ins ( 43 ): 3 = getstatic &lt; Application, Ljava/lang/System, out, &lt;Application,Ljava/io/PrintStream&gt; &gt; <BR>def Value String : v3 <BR>ins ( 43 ): invokevirtual &lt; Application, Ljava/io/PrintStream,
+ println(Ljava/lang/String;)V &gt; 3,4 @5 exception:5 <BR>def Value String : v5 <BR>use Value String : v3 <BR>use Value String : v4:#say1() <BR>issBlk===&gt;BB[SSA:-1..-2]0 - java.io.PrintStream.println(Ljava/lang/String;)V <BR>issBlk===&gt;BB[SSA:0..3]1 - java.io.PrintStream.println(Ljava/lang/String;)V <BR>issBlk===&gt;BB[SSA:4..6]2 - java.io.PrintStream.println(Ljava/lang/String;)V <BR>issBlk===&gt;BB[SSA:7..8]3 - java.io.PrintStream.println(Ljava/lang/String;)V <BR>issBlk===&gt;BB[SSA:9..10]4 - java.io.PrintStream.println(Ljava/lang/String;)V <BR>issBlk===&gt;BB[SSA:11..11]5 - java.io.PrintStream.println(Ljava/lang/String;)V <BR>issBlk===&gt;BB[SSA:17..17]8 - java.io.PrintStream.println(Ljava/lang/String;)V <BR>issBlk===&gt;BB[SSA:-1..-2]9 - java.io.PrintStream.println(Ljava/lang/String;)V <BR>issBlk===&gt;BB[SSA:18..19]8 - simple.HelloWorld.sayHello(Ljava/lang/String;)V <BR>ins ( 35 ): invokevirtual &lt; Application, Lsimple/HelloWorld, say2()V &gt;
+ 1 @39 exception:10 <BR>def Value String : v10 <BR>use Value String : v1 <BR>loca name ( this )<FONT size=4> </FONT><BR><FONT size=4></FONT><BR><FONT size=4></FONT><BR>It seems that the path is from the call to say1() go into the function definition of say(), then come out and jump on to the call to say2().. Is this path right in a CFG?<FONT size=4> </FONT><BR><FONT size=4></FONT><BR>thanks<FONT size=4> </FONT><BR>dongyu</TD></TR></TBODY></TABLE><TT><BR>-------------------------------------------------------------------------<BR>This SF.Net email is sponsored by the Moblin Your Move Developer's challenge<BR>Build the coolest Linux based applications with Moblin SDK &amp; win great prizes<BR>Grand prize is a trip for two to an Open Source event anywhere in the world<BR></TT><TT><A href="http://moblin-contest.org/redirect.php?banner_id=100&amp;url=/_______________________________________________" target=_blank
+ rel=nofollow>http://moblin-contest.org/redirect.php?banner_id=100&amp;url=/_______________________________________________</A></TT><TT><BR>Wala-wala mailing list<BR>Wala-wala@lists.sourceforge.net<BR></TT><TT><A href="https://lists.sourceforge.net/lists/listinfo/wala-wala" target=_blank rel=nofollow>https://lists.sourceforge.net/lists/listinfo/wala-wala</A></TT><FONT size=4><BR></FONT><BR><TT><FONT size=4>-------------------------------------------------------------------------<BR>This SF.Net email is sponsored by the Moblin Your Move Developer's<BR>challenge<BR>Build the coolest Linux based applications with Moblin SDK &amp; win great<BR>prizes<BR>Grand prize is a trip for two to an Open Source event anywhere in the world<BR></FONT></TT><TT><FONT size=4><A href="http://moblin-contest.org/redirect.php?banner_id=100&amp;url=/" target=_blank rel=nofollow>http://moblin-contest.org/redirect.php?banner_id=100&amp;url=/</A></FONT></TT><BR><TT><FONT
+ size=4>_______________________________________________<BR>Wala-wala mailing list<BR>Wala-wala@lists.sourceforge.net<BR></FONT></TT><TT><FONT size=4><A href="https://lists.sourceforge.net/lists/listinfo/wala-wala" target=_blank rel=nofollow>https://lists.sourceforge.net/lists/listinfo/wala-wala</A></FONT></TT><TT><FONT size=4><BR></FONT></TT></TD></TR></TBODY></TABLE></TD></TR></TBODY></TABLE><FONT size=1><BR></FONT><TT>-------------------------------------------------------------------------<BR>This SF.Net email is sponsored by the Moblin Your Move Developer's challenge<BR>Build the coolest Linux based applications with Moblin SDK &amp; win great prizes<BR>Grand prize is a trip for two to an Open Source event anywhere in the world<BR></TT><TT><A href="http://moblin-contest.org/redirect.php?banner_id=100&amp;url=/" target=_blank rel=nofollow>http://moblin-contest.org/redirect.php?banner_id=100&amp;url=/</A></TT><FONT
+ size=1><BR></FONT><TT>_______________________________________________<BR>Wala-wala mailing list<BR>Wala-wala@lists.sourceforge.net<BR></TT><TT><A href="https://lists.sourceforge.net/lists/listinfo/wala-wala" target=_blank rel=nofollow>https://lists.sourceforge.net/lists/listinfo/wala-wala</A></TT><TT><BR></TT><FONT size=1><BR></FONT><BR></DIV></DIV><PRE>-------------------------------------------------------------------------
+This SF.Net email is sponsored by the Moblin Your Move Developer's
+challenge
+Build the coolest Linux based applications with Moblin SDK &amp; win great
+prizes
+Grand prize is a trip for two to an Open Source event anywhere in the world
+http://moblin-contest.org/redirect.php?banner_id=100&amp;url=/</PRE><PRE>_______________________________________________
+Wala-wala mailing list
+Wala-wala@lists.sourceforge.net
+https://lists.sourceforge.net/lists/listinfo/wala-wala
+</PRE></BLOCKQUOTE></td></tr></table><br>
+
+      
+--0-1327589706-1225214425=:7633
+Content-Type: image/gif; name="graycol.gif"
+Content-Transfer-Encoding: base64
+Content-Id: <1.2208623833@web62503.mail.re1.yahoo.com>
+Content-Disposition: inline; filename="graycol.gif"
+
+R0lGODlhEAAQAKECAMzMzAAAAP///wAAACH5BAEAAAIALAAAAAAQABAAAAIXlI+py+0PopwxUbpu
+ZRfKZ2zgSJbmSRYAIf4fT3B0aW1pemVkIGJ5IFVsZWFkIFNtYXJ0U2F2ZXIhAAA7
+
+--0-1327589706-1225214425=:7633
+Content-Type: image/gif; name="ecblank.gif"
+Content-Transfer-Encoding: base64
+Content-Id: <2.2208623833@web62503.mail.re1.yahoo.com>
+Content-Disposition: inline; filename="ecblank.gif"
+
+R0lGODlhEAABAIAAAAAAAP///yH5BAEAAAEALAAAAAAQAAEAAAIEjI8ZBQA7
+
+--0-1327589706-1225214425=:7633--
