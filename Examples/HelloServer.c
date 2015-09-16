@@ -29,8 +29,8 @@ char * contentType(char filename[]){
         content = "Content-Type: image/gif\r\n\r\n";
     }
     
-    else if(strcmp(token,"png")==0){
-        content = "Content-Type: image/png\r\n\r\n";
+    else if(strcmp(token,"jpg")==0){
+        content = "Content-Type: image/jpg\r\n\r\n";
     }
     
     else {
@@ -41,11 +41,11 @@ char * contentType(char filename[]){
     
 }
 
-long GetFileSize(const char* filename)
+long int GetFileSize(char* filename)
 { /*Got from 
    http://cboard.cprogramming.com/c-programming/79016-function-returns-number-bytes-file.html
    */
-    long size;
+    long int size;
     FILE *f;
     
     f = fopen(filename, "rb");
@@ -113,6 +113,47 @@ bool readRequest(char firstLine[], char host[], int sock) {
     return keep_alive;
 }
 
+void sendBinary(int sock,char * filename){
+    char buf[1024];
+    FILE *fp;
+
+    long int filesize = GetFileSize(filename);
+    //long filesize = (long)(lseek(fp,(off_t)0,SEEK_END));
+    //(void)lseek(fp,(off_t)0,SEEK_SET);
+    //char contentHeader[100];
+    //char * contentHeader = "Content-Length: 3536283\r\n";
+    //sprintf(contentHeader,"Content-Length: %zu\r\n\r\n",filesize);
+    //printf("content length: %s\n",contentHeader);
+    
+    //int x = send(sock,contentHeader,strlen(contentHeader),0);
+    
+    char contentAlive[100];
+    //sprintf(contentAlive,"Connection: keep alive\r\n");
+    //send(sock,contentAlive,strlen(contentAlive),0);
+    //printf("content size: %d\n",x);
+    size_t total = 0;
+    //char new_buf[filesize];
+    //bytesRead = fread(new_buf,sizeof(char),filesize,fp);
+    //sendmsg(sock,new_buf,0);
+    int success;
+    fp = fopen(filename,"rb"); //add error checking
+    size_t bytesRead;
+    while (( bytesRead = fread( buf, sizeof(char), 1024, fp )) > 0 ) {
+        total+=bytesRead;
+        //printf("this is the buffer: %s\n",buf);
+        success = send(sock, buf, bytesRead,0);
+        //printf("did we send: %d\n",success);
+        //printf("did we send: %zu\n",bytesRead);
+        //memset(buf,0,strlen(buf));
+        
+    }
+    sleep(1);
+    //printf("size of char: %lu",sizeof(char));
+    printf("bytes read: %ld\n",total);
+    fclose(fp);
+    //close(sock);
+}
+
 
 
 void *processRequest(void *s) { //,char *document_root) {
@@ -153,30 +194,66 @@ void *processRequest(void *s) { //,char *document_root) {
     printf("%s\n",filename);
     if(strcmp(filename,"/")==0){
         printf("here1\n");
-        char filepath[1024];
+        char * index_file = "/Users/Alex/Downloads/index.html";
+        //long imageSize = GetFileSize(index_file);
+        //printf("size of image: %ld\n",imageSize);
+        //fp = fopen(filename_png,"rb");
+        //if (fp == NULL) printf("Error\n");
+        send(sock, status1, strlen(status1), 0);
+        char * contentHeader = "Content-Length: 3536283\r\n";
+        //sprintf(contentHeader,"Content-Length: %zu\r\n\r\n",filesize);
+        printf("content length: %s\n",contentHeader);
+        
+        int x = send(sock,contentHeader,strlen(contentHeader),0);
+        //send(sock, content1, strlen(content1), 0);
+        printf("content: %s\n",content);
+        send(sock, content, strlen(content), 0);
+        sendBinary(sock,index_file);
+        /*while (fgets(line, 1024, fp) != 0) {
+         send(sock, line, strlen(line), 0);
+         }*/
+        /*char filepath[1024];
         //strcpy(filepath,document_root);
         //strcat(filepath,"/index.html");
         fp = fopen("/Users/Alex/Desktop/Fall2015/Networks/www/index.html","r");
+        if (fp == NULL) printf("Error\n");
+        send(sock, status1, strlen(status1), 0);
+        //send(sock, content1, strlen(content1), 0);
+        printf("content: %s\n",content);
+        send(sock, content, strlen(content), 0);
+        while (fgets(line, 1024, fp) != 0) {
+            send(sock, line, strlen(line), 0);
+        }
+        fclose(fp);*/
+        
+
     }
     else {
         printf("here2\n");
-        const char * filename_png = "/Users/Alex/Desktop/Fall2015/Networks/www/images/welcome.png";
-        long imageSize = GetFileSize(filename_png);
-        printf("size of image: %ld\n",imageSize);
-        fp = fopen(filename_png,"rb");
-        printf("oops\n");
+        char * filename_png = "/Users/Alex/Desktop/Fall2015/Networks/www/images/meandz.jpg";
+        //long imageSize = GetFileSize(filename_png);
+        //printf("size of image: %ld\n",imageSize);
+        //fp = fopen(filename_png,"rb");
+        //if (fp == NULL) printf("Error\n");
+        send(sock, status1, strlen(status1), 0);
+        char * contentHeader = "Content-Length: 3536283\r\n";
+        //sprintf(contentHeader,"Content-Length: %zu\r\n\r\n",filesize);
+        printf("content length: %s\n",contentHeader);
+        
+        int x = send(sock,contentHeader,strlen(contentHeader),0);
+        //send(sock, content1, strlen(content1), 0);
+        printf("content: %s\n",content);
+        send(sock, content, strlen(content), 0);
+        sendBinary(sock,filename_png);
+        /*while (fgets(line, 1024, fp) != 0) {
+            send(sock, line, strlen(line), 0);
+        }*/
+
     }
-    if (fp == NULL) printf("Error\n");
-    send(sock, status1, strlen(status1), 0);
-    //send(sock, content1, strlen(content1), 0);
-    printf("content: %s\n",content);
-    send(sock, content, strlen(content), 0);
-    while (fgets(line, 1024, fp) != 0) {
-        send(sock, line, strlen(line), 0);
-    }
-    close(sock);
-    fclose(fp);
+        //here is where i should wait.
     
+    
+    close(sock);
     return NULL;
 }
 
