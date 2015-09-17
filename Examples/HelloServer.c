@@ -181,7 +181,9 @@ void *processRequest(void *s) { //,char *document_root) {
     char crlf[3] = "\r\n";
     char uri[100];
     char filename[1024];
-    char *status1 = "HTTP/1.1 200 OK\r\n";
+    char * status1 = "HTTP/1.1 200 OK\r\n";
+
+    
     //char *content1 = "Content-Type: text/html\r\n\r\n";
     int num = 0;
     char *token;
@@ -220,13 +222,17 @@ void *processRequest(void *s) { //,char *document_root) {
         
         printf("%s\n", firstLine);
         token = strtok(firstLine, delim);
+            
         token = strtok(NULL, delim);
         //token = "index.html";
         
         //strcpy(filename, ".");
         printf("the current uri: %s\n",uri);
         strcat(uri, token);
-        
+        token = strtok(NULL, delim);
+        printf("first token: %c\n",token[7]);
+        //char http_version = token[7];
+        //char status1 = sprintf("HTTP/1.%d 200 OK\r\n",http_version-'0');
         printf("Suffix: %s\n", uri);
         
         if(strcmp(uri,"/")==0){
@@ -253,7 +259,11 @@ void *processRequest(void *s) { //,char *document_root) {
         sendBinary(sock,filename);
         printf("we sent the first part\n");
         
-        //clean up memory for next part
+            if(strcmp(connection,"Connection: keep-alive")==0){
+                break; //not a keep alive connection, done after one transfer
+            }
+        
+        //clean up memory for next part, do I really need to do this?
         memset(firstLine,0,strlen(firstLine));
         memset(host,0,strlen(host));
         memset(connection,0,strlen(connection));
