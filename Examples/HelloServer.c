@@ -236,42 +236,61 @@ void *processRequest(void *s) { //,char *document_root) {
 
         
         printf("%s\n", firstLine);
+            char method[16];
         token = strtok(firstLine, delim);
+            //token = "POST";
+            strcpy(method,token);
+            printf("compare methods: %d\n",strcmp(method,"GET"));
             
-        token = strtok(NULL, delim);
+            /* make this a method */
+            if(strcmp(method,"GET")){ //add lowercase?
+                printf("bad method\n");
+                sprintf(status1,"HTTP/1.1 400 Bad Request: Invalid Method: %s\r\n\r\n",method);
+                send(sock,status1,strlen(status1),0);
+                char * message = "Error 400 Bad Request: Invalid Method\n";
+                send(sock,message,strlen(message),0);
+                break;
+            }
+            
+            
+        token = strtok(NULL, delim); //filename (uri)
         //token = "index.html";
         
         //strcpy(filename, ".");
         printf("the current uri: %s\n",uri);
         strcat(uri, token);
-        char * http_portion = strtok(NULL, delim);
-        char delim_http[2] = "/";
-        char * version = strtok(http_portion,delim_http);
-        printf("first token: %s\n",version);
-        version = strtok(NULL,delim_http);
+        token = strtok(NULL, delim);
+        char http_version[32];
+            strncpy(http_version,token,8);
+        //char delim_http[2] = "/";
+        //char * version = strtok(http_portion,delim_http);
+        printf("http version: %s\n",http_version);
+        //version = strtok(NULL,delim_http);
             //version = (NULL,"/");
         
         //char version[3];
         //lastThree(3,http_portion,version);
-        printf("first token: %s\n",version);
+        //printf("first token: %s\n",version);
         //char http_version = token[7];
         //check HTTP version
-            printf("compare: %d\n",strcmp(version,"1.1\r\n"));
-            if(!(strcmp(version,"1.1")==0 || strcmp(version,"1.0\r\n")==0)){
-                sprintf(status1,"HTTP/1.1 400 Bad Request: Invalid HTTP-Version: HTTP/%s\r\n\r\n",version);
+            /* make this a method*/
+            printf("compare: %d\n",strcmp(http_version,"HTTP/1.1"));
+            if(!(strcmp(http_version,"HTTP/1.1")==0 || strcmp(http_version,"HTTP/1.0")==0)){
+                printf("bad status\n");
+                sprintf(status1,"HTTP/1.1 400 Bad Request: Invalid HTTP-Version: %s\r\n\r\n",http_version);
                 send(sock,status1,strlen(status1),0);
                 char * message = "Error 400 Bad Request: Invalid HTTP-Version";
                 send(sock,message,strlen(message),0);
                 break;
             }
             else
-               sprintf(status1,"HTTP/%s 200 OK\r\n",version);
+               sprintf(status1,"%s 200 OK\r\n",http_version);
             
         //check method invalid if it isn't GET
             
         //char status1 = sprintf("HTTP/1.%d 200 OK\r\n",http_version-'0');
         printf("Suffix: %s\n", uri);
-        
+        //sprintf(status1,"HTTP/%s 200 OK\r\n","1.1");
         if(strcmp(uri,"/")==0){
             strcat(uri,default_file);
         }
@@ -279,13 +298,34 @@ void *processRequest(void *s) { //,char *document_root) {
         char forSuffix[100];
         strcpy(forSuffix,uri);
         char *content = contentType(forSuffix);
+            
+            if(strlen(content)<2){
+                sprintf(status1,"￼￼HTTP/1.1 501 Not Implemented %s\r\n\r\n",uri);
+                send(sock,status1,strlen(status1),0);
+                char * message = "Error 501 Not Implemented\n";
+                send(sock,message,strlen(message),0);
+                break;
+            }
         
         strcpy(filename,document_root);
         strcat(filename,uri);
+            FILE * fp;
+            fp = fopen(filename,"r");
+            
+            if(fp==NULL){
+                printf("bad file\n");
+                sprintf(status1,"￼HTTP/1.1 404 Not Found: %s\r\n\r\n",uri);
+                send(sock,status1,strlen(status1),0);
+                char * message = "Error 404 File Not Found\n";
+                send(sock,message,strlen(message),0);
+                break;
+                
+            }
+            fclose(fp);
         
         printf("Full Path: %s\n",filename);
         printf("content type: %s\n",content);
-        //send(sock,status1,strlen(status1),0);
+        send(sock,status1,strlen(status1),0);
         send(sock,content,strlen(content),0);
         
         printf("This is the host: %s\n",host);
@@ -329,7 +369,7 @@ void run_server(int port)
 	//char mesg[] = "Hello to the world of socket programming";
 	int *sent;
     pthread_t t;
-    port = 10000;
+    //port = 10000;
 
 	if((sock = socket(AF_INET,SOCK_STREAM,0)) == -1)
 			{
