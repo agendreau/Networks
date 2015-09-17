@@ -9,20 +9,19 @@
 #include <stdbool.h>
 #include <pthread.h>
 
+/* globals for document root and default index files */
+char document_root[1024]; //limiting size of document root, bad style
+const char * default_files[3]; //assuming no more than 3 listed.
 
-#include <signal.h>
-
-
-/* This flag controls termination of the main loop. */
-volatile sig_atomic_t keep_going = 1;
-
-/* The signal handler just clears the flag and re-enables itself. */
-void
-catch_alarm (int sig)
-{
-    keep_going = 0;
-    signal (sig, catch_alarm);
-}
+/* this is a bad hack for reading in valid file types */
+int html=0;
+int png=0;
+int jpg=0;
+int gif=0;
+int css=0;
+int js=0;
+int txt=0;
+int htm=0;
 
 char * contentType(char filename[]){
     char *content;
@@ -33,22 +32,22 @@ char * contentType(char filename[]){
     }
     token = strtok(filename, delim);
     token = strtok(NULL, delim); //get what comes last. hack might have to fix
-    if(strcmp(token,"html")==0 || strcmp(token,"htm")==0){
+    if((strcmp(token,"html")==0 && html) || (strcmp(token,"htm")==0 && htm)){
         content = "Content-Type: text/html\r\n";
     }
-    else if(strcmp(token,"txt")==0) {
+    else if(strcmp(token,"txt")==0 && txt) {
         content = "Content-Type: text/plain\r\n";
     }
     
-    else if(strcmp(token,"gif")==0){
+    else if(strcmp(token,"gif")==0 && gif){
         content = "Content-Type: image/gif\r\n";
     }
     
-    else if(strcmp(token,"png")==0){
+    else if(strcmp(token,"png")==0 && png){
         content = "Content-Type: image/png\r\n";
     }
     
-    else if(strcmp(token,"jpg")==0){
+    else if(strcmp(token,"jpg")==0 && jpg){
         content = "Content-Type: image/jpg\r\n";
     }
     
@@ -163,7 +162,7 @@ void *processRequest(void *s) { //,char *document_root) {
     
     /* Set an alarm to go off in a little while. */
     //alarm (10);
-    
+   
     int sock = *((int *) s);
     int selRet;
     
@@ -188,12 +187,12 @@ void *processRequest(void *s) { //,char *document_root) {
     char *token;
     char *default_file = "index.html";
     //char document_root[1024];
-    char * document_root = "/Users/Alex/Downloads";
+    //char * document_root = "/Users/Alex/Downloads";
     int done;
     
     //Put this in a while loop?
     int i=0;
-
+    
     
     while(1){
         FD_ZERO(&sockSet);
@@ -269,64 +268,12 @@ void *processRequest(void *s) { //,char *document_root) {
     }
     printf("we want to close the socket\n");
     close(sock);
-    /*
-     if keep alive do not close the socket
-     wait ten seconds for additional communication (how will I know this happened?)
-    //add waiting here
-    close(sock);
-     */
 
-    /*if(strcmp(filename,"/")==0){
-        printf("here1\n");
-        char * index_file = "/Users/Alex/Downloads/index.html";
-        //long imageSize = GetFileSize(index_file);
-        //printf("size of image: %ld\n",imageSize);
-        //fp = fopen(filename_png,"rb");
-        //if (fp == NULL) printf("Error\n");
-        send(sock, status1, strlen(status1), 0);
-        char * contentHeader = "Content-Length: 3536283\r\n";
-        //sprintf(contentHeader,"Content-Length: %zu\r\n\r\n",filesize);
-        printf("content length: %s\n",contentHeader);
-        
-        int x = send(sock,contentHeader,strlen(contentHeader),0);
-        //send(sock, content1, strlen(content1), 0);
-        printf("content: %s\n",content);
-        send(sock, content, strlen(content), 0);
-        sendBinary(sock,index_file);
- 
-
-    }
-    else {
-        printf("here2\n");
-        char * filename_png = "/Users/Alex/Desktop/Fall2015/Networks/www/images/meandz.jpg";
-        //long imageSize = GetFileSize(filename_png);
-        //printf("size of image: %ld\n",imageSize);
-        //fp = fopen(filename_png,"rb");
-        //if (fp == NULL) printf("Error\n");
-        send(sock, status1, strlen(status1), 0);
-        char * contentHeader = "Content-Length: 3536283\r\n";
-        //sprintf(contentHeader,"Content-Length: %zu\r\n\r\n",filesize);
-        printf("content length: %s\n",contentHeader);
-        
-        int x = send(sock,contentHeader,strlen(contentHeader),0);
-        //send(sock, content1, strlen(content1), 0);
-        printf("content: %s\n",content);
-        send(sock, content, strlen(content), 0);
-        sendBinary(sock,filename_png);
-        while (fgets(line, 1024, fp) != 0) {
-            send(sock, line, strlen(line), 0);
-        }
-
-    }
-        //here is where i should wait.
-    
-    
-    close(sock);*/
     return NULL;
 }
 
 
-void run_server(int port,char document_root[])
+void run_server(int port)
 {
 
 	int sock, cli;
@@ -335,13 +282,14 @@ void run_server(int port,char document_root[])
 	//char mesg[] = "Hello to the world of socket programming";
 	int *sent;
     pthread_t t;
+    port = 10000;
 
 	if((sock = socket(AF_INET,SOCK_STREAM,0)) == -1)
 			{
 			perror("socket: ");
 			exit(-1);
 			}
-	
+
 	server.sin_family = AF_INET;
 	server.sin_port = htons(port);
 	server.sin_addr.s_addr = INADDR_ANY;
@@ -360,7 +308,7 @@ void run_server(int port,char document_root[])
 		perror("listen");
 		exit(-1);
 	}
-
+    
 	while(1)
 	{
 		if((cli = accept(sock, (struct sockaddr *)&client,&len))==-1)
@@ -371,7 +319,10 @@ void run_server(int port,char document_root[])
 		
 		//sent = send(cli, mesg, strlen(mesg),0);
 		//printf("Sent %d bytes to client : %s\n",sent,inet_ntoa(client.sin_addr));
+        //printf("client: %d\n",cli);
+        sent = (int *) malloc(sizeof(int));
         *sent = cli;
+        printf("here\n");
         //add pthread here
         /*pid_t pid = fork();
         if(pid == 0) {//child process
@@ -379,6 +330,7 @@ void run_server(int port,char document_root[])
         }*/
         pthread_create(&t,NULL,processRequest,(void *) sent);
         //close(cli); //parent doesn't need this
+        free(sent);
         
 	}
     close(sock);
@@ -390,7 +342,96 @@ void run_server(int port,char document_root[])
 }
 
 int main() {
-    int port = 10000;
-    char *document_root = "/Users/Alex/Desktop/Fall2015/Networks/www";
-    run_server(port,document_root);
+    
+    char line[1024]; //assuming lines in config file aren't that long (could make command line)
+    //char document_root[1024]; //limiting size of document root, bad style
+    //const char * default_files[3]; //assuming no more than 3 listed.
+    char delim[2] = " ";
+    char *token;
+    int port;
+    char delim_quote[2]="\"";
+ 
+    
+    FILE * config;
+    config=fopen("ws.conf","r");
+    while(fgets(line,1024,config)!=NULL){
+        //printf("Line read: %s\n",line);
+        token=strtok(line,delim);
+        //printf("Token: %s\n",token);
+        if(strcmp(token,"#serviceport")==0){
+            //memset(line,0,strlen(line));
+            fgets(line,1024,config);
+            token=strtok(line,delim);
+            token=strtok(NULL,delim);//get last entry (port number);
+            port = atoi(token);
+            printf("Port Number: %d\n",port);
+        }
+        else if(strcmp(token,"#document")==0){
+            //memset(line,0,strlen(line));
+            fgets(line,1024,config);
+            token=strtok(line,delim);
+            token=strtok(NULL,delim);
+            token=strtok(token,delim_quote);
+            strcpy(document_root,token);
+            
+            printf("Document root: %s\n",document_root);
+        }
+        else if(strcmp(token,"#default")==0){
+            //memset(line,0,strlen(line));
+            fgets(line,1024,config);
+            token=strtok(line,delim);
+            int i=0;
+            while((token=strtok(NULL,delim))!=NULL){
+                if(i>2){
+                    printf("Too many default files.  Expecting max 3.\n");
+                    exit(-1);
+                }
+                else{
+                    
+                    default_files[i]=token;
+                    //printf("File token: %s\n",default_files[i]);
+                    //not stripping newline from index.ws?
+                    i++;
+                }
+            }
+            
+        }
+        else if(strcmp(token,"#Content-Type")==0){
+            //memset(line,0,strlen(line));
+            printf("got to content type.\n");
+            //fgets(line,1024,config);
+            //printf("content line: %s\n",line);
+            while(fgets(line,1024,config)!=NULL){
+                if(strlen(line) < 2) break;
+                //printf("content line: %s\n",line);
+                token=strtok(line,delim);
+                if(strcmp(token,".html")==0) html=1;
+                else if(strcmp(token,".png")==0) png=1;
+                else if(strcmp(token,".gif")==0) gif=1;
+                else if(strcmp(token,".jpg")==0) jpg=1;
+                else if(strcmp(token,".css")==0) css=1;
+                else if(strcmp(token,".js")==0) js=1;
+                else if(strcmp(token,".txt")==0) txt=1;
+                else if(strcmp(token,".htm")==0) htm=1;
+                else {
+                    printf("Unknown file type.\n");
+                    exit(-1);
+                }
+                //memset(line,0,strlen(line));
+                printf("content line: %d\n",gif);
+            }
+           
+        }
+        else {
+            printf("Invalid configuration file\n");
+            //exit(-1);
+        }
+        //memset(line,0,strlen(line));
+
+    }
+    fclose(config);
+    
+
+    //exit(0);
+    run_server(port);
 }
