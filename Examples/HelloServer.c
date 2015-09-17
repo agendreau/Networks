@@ -24,22 +24,14 @@ int js=0;
 int txt=0;
 int htm=0;
 
-/*void lastThree(int s, const char *input,char ret[])
-{
-    From: http://www.dreamincode.net/forums/topic/162448-function-that-returns-last-three-characters-of-a-string/
-    
-    //char *ret = new char[s];
-    
-    for (int i = 0; i < s; i++)
-    {
-        ret[i] = input[strlen(input) - (s - i)];
-    }
-    ret[
+void error_fivehundred(int sock){
+    char * status1 = "HTTP/1.1 500 Internal Server Error: cannot allocate memory\r\n\r\n";
+    send(sock,status1,strlen(status1),0);
+    char * message = "Error 500 Internal Server Error: cannot allocate memory\n";
+    send(sock,message,strlen(message),0);
 
     
-    //return ret;
-}*/
-
+}
 
 char * contentType(char filename[]){
     char *content;
@@ -223,6 +215,7 @@ void *processRequest(void *s) { //,char *document_root) {
         
         selRet = select(sock+1,&sockSet,NULL,NULL,&tv);
         printf("fdset: %d\n",selRet);
+        //selRet=2; //for testing error 500
         if(selRet==0) {//timeout :(
             printf("we timed out.\n");
             break;
@@ -257,40 +250,41 @@ void *processRequest(void *s) { //,char *document_root) {
         //token = "index.html";
         
         //strcpy(filename, ".");
-        printf("the current uri: %s\n",uri);
+        //printf("the current uri: %s\n",uri);
         strcat(uri, token);
-        token = strtok(NULL, delim);
-        char http_version[32];
-            strncpy(http_version,token,8);
-        //char delim_http[2] = "/";
-        //char * version = strtok(http_portion,delim_http);
-        printf("http version: %s\n",http_version);
-        //version = strtok(NULL,delim_http);
-            //version = (NULL,"/");
-        
-        //char version[3];
-        //lastThree(3,http_portion,version);
-        //printf("first token: %s\n",version);
-        //char http_version = token[7];
-        //check HTTP version
-            /* make this a method*/
-            printf("compare: %d\n",strcmp(http_version,"HTTP/1.1"));
-            if(!(strcmp(http_version,"HTTP/1.1")==0 || strcmp(http_version,"HTTP/1.0")==0)){
-                printf("bad status\n");
-                sprintf(status1,"HTTP/1.1 400 Bad Request: Invalid HTTP-Version: %s\r\n\r\n",http_version);
+            
+            //printf("first token: %c\n",uri[0]);
+            //printf("lenght of uri: %lu\n",strlen(uri));
+            if(uri[0]!='/' || strlen(uri)>255){
+                sprintf(status1,"HTTP/1.1 400 Bad Request: Invalid URI: %s\r\n\r\n",uri);
+                printf("bad uri: %s\n",uri);
                 send(sock,status1,strlen(status1),0);
+                char * message = "Error 400 Bad Request: Invalid URI";
+                send(sock,message,strlen(message),0);
+                break;
+            }
+        token = strtok(NULL, delim);
+
+            /* make this a method*/
+            token = "HTTP/1.12\r\n";
+            
+            //strncpy(http_version,token,8);
+            if(!(strcmp(token,"HTTP/1.1\n\n")==0 || strcmp(token,"HTTP/1.0\n\n")==0||
+                 strcmp(token,"HTTP/1.1\r\n")==0 || strcmp(token,"HTTP/1.0\r\n")==0)){
+                //strncpy(http_version,token,(strlen(token)-2));
+                sprintf(status1,"HTTP/1.1 400 Bad Request: Invalid HTTP-Version: %s\r\n\r\n",token);
+                
                 char * message = "Error 400 Bad Request: Invalid HTTP-Version";
                 send(sock,message,strlen(message),0);
                 break;
             }
-            else
-               sprintf(status1,"%s 200 OK\r\n",http_version);
+        char http_version[9];
+        strncpy(http_version,token,8); //assuming correct version, so this is okay
+        sprintf(status1,"%s 200 OK\r\n",http_version);
             
-        //check method invalid if it isn't GET
-            
-        //char status1 = sprintf("HTTP/1.%d 200 OK\r\n",http_version-'0');
+        
         printf("Suffix: %s\n", uri);
-        //sprintf(status1,"HTTP/%s 200 OK\r\n","1.1");
+
         if(strcmp(uri,"/")==0){
             strcat(uri,default_file);
         }
@@ -336,7 +330,8 @@ void *processRequest(void *s) { //,char *document_root) {
         sendBinary(sock,filename);
         printf("we sent the first part\n");
         
-            if(strcmp(connection,"Connection: keep-alive")==0){
+            if(strcmp(connection,"Connection: keep-alive\r\n")){
+                printf("connection: %s\n",connection);
                 break; //not a keep alive connection, done after one transfer
             }
         
@@ -346,12 +341,14 @@ void *processRequest(void *s) { //,char *document_root) {
         memset(connection,0,strlen(connection));
         memset(uri,0,strlen(uri));
         memset(forSuffix,0,strlen(forSuffix));
-        printf("current uri: %s\n",uri);
         memset(filename,0,strlen(filename));
         i++;
         }
-        else
+        else {
             printf("ERROR\n");
+            error_fivehundred(sock);
+            break;
+        }
     }
     printf("we want to close the socket\n");
     close(sock);
