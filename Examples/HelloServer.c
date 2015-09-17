@@ -260,6 +260,8 @@ void *processRequest(void *s) { //,char *document_root) {
             if(!(strcmp(version,"1.1")==0 || strcmp(version,"1.0\r\n")==0)){
                 sprintf(status1,"HTTP/1.1 400 Bad Request: Invalid HTTP-Version: HTTP/%s\r\n\r\n",version);
                 send(sock,status1,strlen(status1),0);
+                char * message = "Error 400 Bad Request: Invalid HTTP-Version";
+                send(sock,message,strlen(message),0);
                 break;
             }
             else
