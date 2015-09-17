@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <pthread.h>
 
+
 /* globals for document root and default index files */
 char document_root[1024]; //limiting size of document root, bad style
 const char * default_files[3]; //assuming no more than 3 listed.
@@ -22,6 +23,23 @@ int css=0;
 int js=0;
 int txt=0;
 int htm=0;
+
+/*void lastThree(int s, const char *input,char ret[])
+{
+    From: http://www.dreamincode.net/forums/topic/162448-function-that-returns-last-three-characters-of-a-string/
+    
+    //char *ret = new char[s];
+    
+    for (int i = 0; i < s; i++)
+    {
+        ret[i] = input[strlen(input) - (s - i)];
+    }
+    ret[
+
+    
+    //return ret;
+}*/
+
 
 char * contentType(char filename[]){
     char *content;
@@ -181,7 +199,8 @@ void *processRequest(void *s) { //,char *document_root) {
     char crlf[3] = "\r\n";
     char uri[100];
     char filename[1024];
-    char * status1 = "HTTP/1.1 200 OK\r\n";
+    char status1[1024];
+    //char * status1 = "HTTP/1.1 200 OK\r\n";
 
     
     //char *content1 = "Content-Type: text/html\r\n\r\n";
@@ -214,11 +233,7 @@ void *processRequest(void *s) { //,char *document_root) {
         readRequest(firstLine,host,connection,sock);
 
         printf("finished reading request\n");
-        //alarm(0);
-        //alarm(10);
-        
-        //got something so let's process it, reset alarm
-        //readFirstLine(firstLine, sock);
+
         
         printf("%s\n", firstLine);
         token = strtok(firstLine, delim);
@@ -229,9 +244,29 @@ void *processRequest(void *s) { //,char *document_root) {
         //strcpy(filename, ".");
         printf("the current uri: %s\n",uri);
         strcat(uri, token);
-        token = strtok(NULL, delim);
-        printf("first token: %c\n",token[7]);
+        char * http_portion = strtok(NULL, delim);
+        char delim_http[2] = "/";
+        char * version = strtok(http_portion,delim_http);
+        printf("first token: %s\n",version);
+        version = strtok(NULL,delim_http);
+            //version = (NULL,"/");
+        
+        //char version[3];
+        //lastThree(3,http_portion,version);
+        printf("first token: %s\n",version);
         //char http_version = token[7];
+        //check HTTP version
+            printf("compare: %d\n",strcmp(version,"1.1\r\n"));
+            if(!(strcmp(version,"1.1")==0 || strcmp(version,"1.0\r\n")==0)){
+                sprintf(status1,"HTTP/1.1 400 Bad Request: Invalid HTTP-Version: HTTP/%s\r\n\r\n",version);
+                send(sock,status1,strlen(status1),0);
+                break;
+            }
+            else
+               sprintf(status1,"HTTP/%s 200 OK\r\n",version);
+            
+        //check method invalid if it isn't GET
+            
         //char status1 = sprintf("HTTP/1.%d 200 OK\r\n",http_version-'0');
         printf("Suffix: %s\n", uri);
         
@@ -248,7 +283,7 @@ void *processRequest(void *s) { //,char *document_root) {
         
         printf("Full Path: %s\n",filename);
         printf("content type: %s\n",content);
-        send(sock,status1,strlen(status1),0);
+        //send(sock,status1,strlen(status1),0);
         send(sock,content,strlen(content),0);
         
         printf("This is the host: %s\n",host);
