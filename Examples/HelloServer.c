@@ -12,7 +12,9 @@
 
 /* globals for document root and default index files */
 char document_root[1024]; //limiting size of document root, bad style
-const char * default_files[3]; //assuming no more than 3 listed.
+//const char * default_files[3]; //assuming no more than 3 listed.
+char *default_files[10];
+int dirIndexCount;
 
 /* this is a bad hack for reading in valid file types */
 int html=0;
@@ -33,39 +35,37 @@ void error_fivehundred(int sock){
     
 }
 
-char * contentType(char filename[]){
-    char *content;
+void contentType(char content[],char filename[]){
     char *token;
     char delim[2] = ".";
     if(strcmp(filename,"/")==0){
-        return "Content-Type: text/html\r\n";
+        strcpy(content,"Content-Type: text/html\r\n");
     }
     token = strtok(filename, delim);
     token = strtok(NULL, delim); //get what comes last. hack might have to fix
     if((strcmp(token,"html")==0 && html) || (strcmp(token,"htm")==0 && htm)){
-        content = "Content-Type: text/html\r\n";
+        strcpy(content,"Content-Type: text/html\r\n");
     }
     else if(strcmp(token,"txt")==0 && txt) {
-        content = "Content-Type: text/plain\r\n";
+        strcpy(content,"Content-Type: text/plain\r\n");
     }
     
     else if(strcmp(token,"gif")==0 && gif){
-        content = "Content-Type: image/gif\r\n";
+        strcpy(content,"Content-Type: image/gif\r\n");
     }
     
     else if(strcmp(token,"png")==0 && png){
-        content = "Content-Type: image/png\r\n";
+        strcpy(content,"Content-Type: image/png\r\n");
     }
     
     else if(strcmp(token,"jpg")==0 && jpg){
-        content = "Content-Type: image/jpg\r\n";
+        strcpy(content,"Content-Type: image/jpg\r\n");
     }
     
     else {
-        content = "";
+        strcpy(content,"");
     }
     
-    return content;
     
 }
 
@@ -192,13 +192,24 @@ void *processRequest(void *s) { //,char *document_root) {
     char uri[100];
     char filename[1024];
     char status1[1024];
+    char method[16];
+    char forSuffix[100];
+    char content[100];
+    char http_version[9];
     //char * status1 = "HTTP/1.1 200 OK\r\n";
 
     
     //char *content1 = "Content-Type: text/html\r\n\r\n";
     int num = 0;
     char *token;
-    char *default_file = "index.html";
+    char default_file[256]; // = "index.html";
+    FILE *test_index;
+    for(int j=0;j<dirIndexCount;j++){
+        if((test_index = fopen(strcat(strcat(strdup(document_root),"/"),default_files[j]),"r"))!=NULL){
+            strcpy(default_file,default_files[j]);
+            break;
+        }
+    }
     //char document_root[1024];
     //char * document_root = "/Users/Alex/Downloads";
     int done;
@@ -229,7 +240,7 @@ void *processRequest(void *s) { //,char *document_root) {
 
         
         printf("%s\n", firstLine);
-            char method[16];
+
         token = strtok(firstLine, delim);
             //token = "POST";
             strcpy(method,token);
@@ -266,7 +277,7 @@ void *processRequest(void *s) { //,char *document_root) {
         token = strtok(NULL, delim);
 
             /* make this a method*/
-            token = "HTTP/1.12\r\n";
+            //token = "HTTP/1.12\r\n";
             
             //strncpy(http_version,token,8);
             if(!(strcmp(token,"HTTP/1.1\n\n")==0 || strcmp(token,"HTTP/1.0\n\n")==0||
@@ -278,7 +289,6 @@ void *processRequest(void *s) { //,char *document_root) {
                 send(sock,message,strlen(message),0);
                 break;
             }
-        char http_version[9];
         strncpy(http_version,token,8); //assuming correct version, so this is okay
         sprintf(status1,"%s 200 OK\r\n",http_version);
             
@@ -289,9 +299,9 @@ void *processRequest(void *s) { //,char *document_root) {
             strcat(uri,default_file);
         }
         
-        char forSuffix[100];
+
         strcpy(forSuffix,uri);
-        char *content = contentType(forSuffix);
+        contentType(content,forSuffix);
             
             if(strlen(content)<2){
                 sprintf(status1,"￼￼HTTP/1.1 501 Not Implemented %s\r\n\r\n",uri);
@@ -329,6 +339,7 @@ void *processRequest(void *s) { //,char *document_root) {
         
         sendBinary(sock,filename);
         printf("we sent the first part\n");
+            //error_fivehundred(sock);
         
             if(strcmp(connection,"Connection: keep-alive\r\n")){
                 printf("connection: %s\n",connection);
@@ -336,12 +347,13 @@ void *processRequest(void *s) { //,char *document_root) {
             }
         
         //clean up memory for next part, do I really need to do this?
-        memset(firstLine,0,strlen(firstLine));
+        /*memset(firstLine,0,strlen(firstLine));
         memset(host,0,strlen(host));
-        memset(connection,0,strlen(connection));
-        memset(uri,0,strlen(uri));
-        memset(forSuffix,0,strlen(forSuffix));
-        memset(filename,0,strlen(filename));
+        memset(connection,0,strlen(connection));*/
+        uri[0]='\0';
+        //memset(uri,0,strlen(uri));
+        /*memset(forSuffix,0,strlen(forSuffix));
+        memset(filename,0,strlen(filename));*/
         i++;
         }
         else {
@@ -439,11 +451,8 @@ int main() {
     FILE * config;
     config=fopen("ws.conf","r");
     while(fgets(line,1024,config)!=NULL){
-        //printf("Line read: %s\n",line);
         token=strtok(line,delim);
-        //printf("Token: %s\n",token);
         if(strcmp(token,"#serviceport")==0){
-            //memset(line,0,strlen(line));
             fgets(line,1024,config);
             token=strtok(line,delim);
             token=strtok(NULL,delim);//get last entry (port number);
@@ -463,7 +472,23 @@ int main() {
         else if(strcmp(token,"#default")==0){
             //memset(line,0,strlen(line));
             fgets(line,1024,config);
-            token=strtok(line,delim);
+            dirIndexCount = 0;
+            printf("line: %s\n",line);
+            token = strtok(line, " \t");
+            token = strtok(NULL, " \t");
+            while (token != NULL) {
+                default_files[dirIndexCount] = strdup(token);
+                dirIndexCount++;
+                token= strtok(NULL, " \t");
+                printf("new token: %s\n",token);
+            }
+            default_files[dirIndexCount-1]=strtok(default_files[dirIndexCount-1],"\n");
+            for (int i = 0; i < dirIndexCount; i++)
+                printf("index file %d: %s\n", i, default_files[i]);
+            
+            
+            
+            /*token=strtok(line,delim);
             int i=0;
             while((token=strtok(NULL,delim))!=NULL){
                 if(i>2){
@@ -477,7 +502,7 @@ int main() {
                     //not stripping newline from index.ws?
                     i++;
                 }
-            }
+            }*/
             
         }
         else if(strcmp(token,"#Content-Type")==0){
