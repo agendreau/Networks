@@ -38,8 +38,12 @@ void error_fivehundred(int sock){
 void contentType(char content[],char filename[]){
     char *token;
     char delim[2] = ".";
+    if(strcmp(filename,"")==0){
+        strcpy(content,"");
+    }
     if(strcmp(filename,"/")==0){
         strcpy(content,"Content-Type: text/html\r\n");
+        return;
     }
     token = strtok(filename, delim);
     token = strtok(NULL, delim); //get what comes last. hack might have to fix
@@ -202,7 +206,9 @@ void *processRequest(void *s) { //,char *document_root) {
     //char *content1 = "Content-Type: text/html\r\n\r\n";
     int num = 0;
     char *token;
-    char default_file[256]; // = "index.html";
+    char default_file[33];
+
+    strcpy(default_file,"");
     FILE *test_index;
     for(int j=0;j<dirIndexCount;j++){
         if((test_index = fopen(strcat(strcat(strdup(document_root),"/"),default_files[j]),"r"))!=NULL){
@@ -210,6 +216,7 @@ void *processRequest(void *s) { //,char *document_root) {
             break;
         }
     }
+    printf("default file len: %lu\n",strlen(default_file));
     //char document_root[1024];
     //char * document_root = "/Users/Alex/Downloads";
     int done;
@@ -294,13 +301,22 @@ void *processRequest(void *s) { //,char *document_root) {
             
         
         printf("Suffix: %s\n", uri);
-
+            
+        printf("default file len: %lu\n",strlen(default_file));
         if(strcmp(uri,"/")==0){
-            strcat(uri,default_file);
+            printf("here\n");
+            printf("no index file");
+            if(strlen(default_file)>0){
+                strcat(uri,default_file);
+            }
         }
         
-
+            if(strcmp(uri,"/")==0){
+                error_fivehundred(sock);
+                break;
+            }
         strcpy(forSuffix,uri);
+        printf("For content: %s\n", uri);
         contentType(content,forSuffix);
             
             if(strlen(content)<2){
