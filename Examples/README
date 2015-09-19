@@ -1,0 +1,23 @@
+Alex Gendreau
+Programming Assignment 1
+
+Files:
+ws.conf
+HelloServer.c
+MakeFile
+Directory with example website
+
+To use my webserver simply run make in the top level directory to build the executable, HelloServer
+
+To run HelloServer type
+./HelloServer on the command line
+
+The default port in my ws.conf file is 10001
+
+The directory contains the example webpage which contains text, an embedded image, and hyperlinks. It supports files types, html, htm, png, gif, txt, and jpg.  The assignment required all of these files except jpg, but I added some limited support for it for testing purposes.
+
+For invalid URI, I was unable to find good documentation for what a valid URI was for HTTP protocol.  Thus I made up my own, which says invalid URIs either don’t begin with a ‘/‘ or are more than 255 characters (arbitrary I know).
+
+
+
+
