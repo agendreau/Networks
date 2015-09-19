@@ -18,6 +18,14 @@ The directory contains the example webpage which contains text, an embedded imag
 
 For invalid URI, I was unable to find good documentation for what a valid URI was for HTTP protocol.  Thus I made up my own, which says invalid URIs either don’t begin with a ‘/‘ or are more than 255 characters (arbitrary I know).
 
+My error 501: Not Implemented seems to be implemented correctly, but I am getting junk at the beginning of the message. This happens in Firefox, Safari, and Chrome.
+
+For other errors, Safari sometimes displays junk before them.  
+
+I am not sure why this is happening and why it doesn’t happen on all errors and happens on Safair but not Firefox or Chrome.  My only idea about while it’s occurring on Safari is that Safari sends strange requests sometimes for weird files.
+
+For error 500, I did not know what would cause this, so I throw it if my select statement fails or if no index file exists.
+
 
 
 
