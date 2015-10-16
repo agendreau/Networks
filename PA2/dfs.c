@@ -124,36 +124,42 @@ void readRequest(char firstLine[],int sock) {
 /* Sends the file to the client byte by byte */
 void sendBinary(int sock,char * filename){
     char buf[1024];
+    char file[256];
+    char contentHeader[100];
     FILE *fp;
     
-    long filesize = GetFileSize(filename);
-    
-    char contentHeader[100];
-    sprintf(contentHeader,"Part %s %ld %d\n","test.txt",filesize,1);
-    send(sock,contentHeader,strlen(contentHeader),0);
-    
-    
-    
-    
-    size_t total = 0;
-    int success;
-    fp = fopen(filename,"rb"); //add error checking
     size_t bytesRead;
-    while (( bytesRead = fread( buf, sizeof(char), 1024, fp )) > 0 ) {
-        total+=bytesRead;
-        success = send(sock, buf, bytesRead,0);
+    int success;
+    
+    for(int i=1;i<5;i++){
+        sprintf(file,"DFS1/.%s.%d",filename,i);
+        if( access( file, F_OK ) != -1 ) {
+            //long filesize = GetFileSize(file);
+            //bytesRead=fread(buf,sizeof(long),2*sizeof(long),fp)
+            sprintf(contentHeader,"Part %s %ld %d %ld\n",filename,filesize,i,offset);
+            fp = fopen(file,"rb");
+            send(sock,contentHeader,strlen(contentHeader),0);
+            int remaining = filesize%1024;
+            while(filesize/1024 > 0){
+                bytesRead=fread( buf, sizeof(char), 1024, fp );
+                success = send(sock, buf, bytesRead,0);
+            }
+            if(remaining>0){
+                bytesRead=fread( buf, sizeof(char), remaining, fp );
+                success = send(sock, buf, bytesRead,0);
+            }
+            fclose(fp);
+        }
+  
     }
     
-    //sleep(1);
-    //printf("bytes read: %ld\n",total);
-    fclose(fp);
 }
 
 void getRequest(int sock,char * filename) {
     sendBinary(sock,filename);
     }
 
-void putRequest(int sock,char * filename, long filesize, int part){
+void putRequest(int sock,char * filename, long filesize, int part, long offset){
     char buf[1024];
     char file[256];
     sprintf(file,"DFS1/.%s.%d",filename,part);
@@ -161,8 +167,10 @@ void putRequest(int sock,char * filename, long filesize, int part){
     FILE *fp = fopen(file,"wb");
     ssize_t total_read_bytes=0;
     ssize_t read_bytes;
-  
     
+  
+    fwrite(&filesize,sizeof(long),1,fp);
+    fwrite(&offset,sizeof(long),1,fp);
     
         
         int remaining = filesize%1024;
@@ -226,6 +234,7 @@ void *processRequest(void *s) { //,char *document_root) {
     char *token;
     char default_file[33];
     int i=0;
+    long offset;
     HashTable *info = createHashTable(100);
     User u;
     
@@ -254,13 +263,18 @@ void *processRequest(void *s) { //,char *document_root) {
     filesize = atol(token);
     token=strtok(NULL,delim);
     part = atoi(token);
+        token = strtok(NULL,delim);
+        offset = atol(token);
     
     
-    if(strcmp(request,"GET")==0)
-    getRequest(sock,filename);
+        if(strcmp(request,"GET")==0) {
+            printf("get request\n");
+            getRequest(sock,filename);
+            
+        }
     
     else if(strcmp(request,"PUT")==0)
-    putRequest(sock,filename,filesize,part);
+    putRequest(sock,filename,filesize,part,offset);
     
     else if(strcmp(request,"LIST")==0)
     listRequest(sock);

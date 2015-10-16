@@ -57,7 +57,7 @@ void sendBinary(int sock,char * filename){
      send(sock,contentAlive,strlen(contentAlive),0);*/
     
     
-    size_t total = 0;
+    long total = 0;
     int success;
     fp = fopen(filename,"rb"); //add error checking
     int add_byte;
@@ -71,16 +71,18 @@ void sendBinary(int sock,char * filename){
         else
             add_byte=0;
         bytes_to_read=part_size+add_byte;
-        sprintf(contentHeader,"PUT %s %lu %d\n","test.txt",bytes_to_read,i+1);
+        sprintf(contentHeader,"PUT %s %lu %d %lu\n","test.txt",bytes_to_read,i+1,total);
         send(sock,contentHeader,strlen(contentHeader),0);
         int remaining = bytes_to_read%1024;
-        fseek( fp, i*part_size, SEEK_SET );
+        fseek( fp, total, SEEK_SET );
         while(bytes_to_read/1024 > 0){
             bytesRead=fread( buf, sizeof(char), 1024, fp );
+            total+=bytesRead;
             success = send(sock, buf, bytesRead,0);
         }
         if(remaining>0){
             bytesRead=fread( buf, sizeof(char), remaining, fp );
+            total+=bytesRead;
             success = send(sock, buf, bytesRead,0);
         }
         
@@ -94,6 +96,153 @@ void sendBinary(int sock,char * filename){
     //sleep(1);
     //printf("bytes read: %ld\n",total);
     fclose(fp);
+}
+
+void receiveBinary(int sock,FILE * fp,char * filename, long filesize, int part, int parts[]){
+    char buf[1024];
+    char file[256];
+    //sprintf(file,"DFS1/.%s.%d",filename,part);
+    //printf("%s\n",file);
+    
+    ssize_t total_read_bytes=0;
+    ssize_t read_bytes;
+    
+    if(part==1)
+        fseek( fp, 0, SEEK_SET );
+    
+    else if(part==2)
+        fseek(fp,parts[0],SEEK_SET);
+    
+    else if(part==3)
+        fseek(fp,parts[0]+parts[1],SEEK_SET);
+    
+    else
+        fseek(fp,parts[0]+parts[1]+parts[2],SEEK_SET);
+    
+   
+    
+    
+    int remaining = filesize%1024;
+    
+    while(filesize/1024 > 0){
+        read_bytes = recv(sock, buf,1024,0);
+        total_read_bytes+=read_bytes;
+        fwrite(buf,sizeof(char),read_bytes,fp);
+        //printf("total read bytes: %lu\n",total_read_bytes);
+        //printf("read bytes: %lu\n",read_bytes);
+    }
+    if(remaining>0){
+        read_bytes = recv(sock, buf,remaining,0);
+        total_read_bytes+=read_bytes;
+        fwrite(buf,sizeof(char),read_bytes,fp);
+        //printf("total read bytes: %lu\n",total_read_bytes);
+        //printf("read bytes: %lu\n",read_bytes);
+        
+    }
+    
+    parts[part-1]=total_read_bytes;
+    printf("parts[%d]: %d\n", part-1,parts[part-1]);
+    
+    //fclose(fp);
+
+}
+
+void readLine(char firstLine[], int sock) {
+    int i = 0;
+    char c;
+    int len;
+    len = recv(sock, &c, 1, 0);
+    //printf("%c\n",c);
+    while (len == 1 && c != '\n') {
+        firstLine[i] = c;;
+        i++;
+        len = recv(sock, &c, 1, 0);
+    }
+    firstLine[i] = '\n';
+    firstLine[i+1] = '\0';
+    //trying to do some error handling, wasn't working very well
+    /*if(len==-1){
+     printf("error in read line\n");
+     return 0;
+     }
+     else
+     return 1;*/
+    //printf("%s",firstLine);
+}
+
+void processGetRequest(int sock) {
+struct timeval tv;
+fd_set sockSet;
+
+FD_ZERO(&sockSet);
+
+char firstLine[1024];
+char host[1024];
+char connection[1024];
+char delim[2] = " ";
+char crlf[3] = "\r\n";
+char uri[1024];
+
+char status1[1024];
+char method[16];
+char forSuffix[1024];
+char content[100];
+char http_version[9];
+
+int num = 0;
+char *token;
+char default_file[33];
+int i=0;
+
+
+//int port=10000;
+/*
+ strcpy(u.username,"Alex");
+ strcpy(u.password,"password");
+ int check = insert(info,u);
+ printf("check: %d\n",check);
+ Node * node = find(info,u);
+ printf("Name: %s\n",(node->u).username);
+ printf("Password: %s\n",(node->u).password);
+ 
+ //printf("going around again: %d\n",i);*/
+    int parts[4];
+    parts[0]=parts[1]=parts[2]=parts[3]=0;
+    FILE *fp = fopen("test.txt","wb");
+    int j=0;
+    //select statement;
+while(j<4){
+    readLine(firstLine,sock);
+    printf("readline: %s\n",firstLine);
+    if(strlen(firstLine)<2)
+        break;
+    char request[8];
+    char filename[100];
+    long filesize;
+    int part;
+    printf("request: %s\n",firstLine);
+    token = strtok(firstLine,delim);
+    strcpy(request,token);
+    token = strtok(NULL,delim);
+    strcpy(filename,token);
+    token= strtok(NULL,delim);
+    filesize = atol(token);
+    token=strtok(NULL,delim);
+    part = atoi(token);
+    
+    
+    if(strcmp(request,"Part")==0)
+        receiveBinary(sock,fp,filename,filesize,part,parts);
+    printf("here\n");
+    j++;
+
+}
+    fclose(fp);
+    printf("we want to close the socket\n");
+    close(sock);
+    
+    
+    
 }
 
 
@@ -153,6 +302,12 @@ int main(int argc, char *argv[]) {
     //fgets(buffer,255,stdin);
     
     sendBinary(sockfd,"testFiles/test.txt");
+    //char contentHeader[100];
+    //long x = 0;
+    //sprintf(contentHeader,"GET %s %lu %d\n","test.txt",x,0);
+    //send(sockfd,contentHeader,strlen(contentHeader),0);
+
+    //processGetRequest(sockfd);
     
     /* Send message to the server */
     //n = write(sockfd, buffer, strlen(buffer));
@@ -164,7 +319,7 @@ int main(int argc, char *argv[]) {
     
     /* Now read server response */
     bzero(buffer,256);
-    n = read(sockfd, buffer, 255);
+    //n = read(sockfd, buffer, 255);
     
     if (n < 0) {
         perror("ERROR reading from socket");
