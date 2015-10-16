@@ -18,12 +18,62 @@
 
 //void run_client(int ports[])
 
+/* returns the number of bytes in a file*/
+long GetFileSize(char* filename)
+{ /*Got from
+   http://cboard.cprogramming.com/c-programming/79016-function-returns-number-bytes-file.html
+   */
+    long size;
+    FILE *f;
+    
+    f = fopen(filename, "rb");
+    if (f == NULL) return -1;
+    fseek(f, 0, SEEK_END);
+    size = ftell(f);
+    fclose(f);
+    
+    return size;
+}
+
+/* Sends the file to the client byte by byte */
+void sendBinary(int sock,char * filename){
+    char buf[1024];
+    FILE *fp;
+    
+    long filesize = GetFileSize(filename);
+    
+    char contentHeader[100];
+    sprintf(contentHeader,"PUT %s %ld %d\n","test.txt",filesize,1);
+    send(sock,contentHeader,strlen(contentHeader),0);
+    
+    //printf("File size: %s\n",contentHeader);
+    
+    /*char contentAlive[100];
+     sprintf(contentAlive,"Connection: keep alive\r\n\r\n");
+     send(sock,contentAlive,strlen(contentAlive),0);*/
+    
+    
+    size_t total = 0;
+    int success;
+    fp = fopen(filename,"rb"); //add error checking
+    size_t bytesRead;
+    while (( bytesRead = fread( buf, sizeof(char), 1024, fp )) > 0 ) {
+        total+=bytesRead;
+        success = send(sock, buf, bytesRead,0);
+    }
+    
+    //sleep(1);
+    //printf("bytes read: %ld\n",total);
+    fclose(fp);
+}
+
+
 
 
 
 
 int main(int argc, char *argv[]) {
-    int sockfd, portno, n;
+    int sockfd, portno, portno2,portno3,portno4,n;
     struct sockaddr_in serv_addr;
     struct hostent *server;
     
@@ -35,6 +85,9 @@ int main(int argc, char *argv[]) {
     }
     
     portno = atoi(argv[2]);
+    /*portno2 = 10002;
+    portno3 = 10003;
+    portno4 = 10004;*/
     
     /* Create a socket point */
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -70,8 +123,10 @@ int main(int argc, char *argv[]) {
     bzero(buffer,256);
     fgets(buffer,255,stdin);
     
+    sendBinary(sockfd,"testFiles/test.txt");
+    
     /* Send message to the server */
-    n = write(sockfd, buffer, strlen(buffer));
+    //n = write(sockfd, buffer, strlen(buffer));
     
     if (n < 0) {
         perror("ERROR writing to socket");

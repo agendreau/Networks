@@ -81,7 +81,7 @@ void readLine(char firstLine[], int sock) {
  * all other information from the request is igonred
  * the request end when the message from the socket has length 2 or less.
  */
-void readRequest(char firstLine[], char host[], char connection[],int sock) {
+void readRequest(char firstLine[],int sock) {
     char buf[1024];
     char copy_buffer[1024];
     int len;
@@ -151,6 +151,26 @@ void sendBinary(int sock,char * filename){
     fclose(fp);
 }
 
+void getRequest(int sock,char * filename) {};
+void putRequest(int sock,char * filename, long filesize, int part){
+    char buf[1024];
+    FILE *fp = fopen(filename,"wb");
+    ssize_t total_read_bytes=0;
+    ssize_t read_bytes;
+    printf("filesize: %lu\n",filesize);
+    while (total_read_bytes < filesize) {
+        
+        read_bytes = recv(sock, buf,1024,0);
+        total_read_bytes+=read_bytes;
+        fwrite(buf,sizeof(char),read_bytes,fp);
+        printf("total read bytes: %lu\n",total_read_bytes);
+        printf("read bytes: %lu\n",read_bytes);
+    }
+    fclose(fp);
+}
+void listRequest(int sock) {};
+void badRequest(int sock) {};
+
 /* Processes the client request
  * Reads the request
  * Sets up the select for pipelining when keep-alive connection
@@ -176,7 +196,7 @@ void *processRequest(void *s) { //,char *document_root) {
     char delim[2] = " ";
     char crlf[3] = "\r\n";
     char uri[1024];
-    char filename[1024];
+    
     char status1[1024];
     char method[16];
     char forSuffix[1024];
@@ -191,7 +211,7 @@ void *processRequest(void *s) { //,char *document_root) {
     User u;
     
     int port=10000;
-    
+    /*
     strcpy(u.username,"Alex");
     strcpy(u.password,"password");
     int check = insert(info,u);
@@ -200,16 +220,42 @@ void *processRequest(void *s) { //,char *document_root) {
     printf("Name: %s\n",(node->u).username);
     printf("Password: %s\n",(node->u).password);
 
-            //printf("going around again: %d\n",i);
-            readRequest(firstLine,host,connection,sock);
-            User t;
+            //printf("going around again: %d\n",i);*/
+            readRequest(firstLine,sock);
+            char request[8];
+    char filename[100];
+            long filesize;
+    int part;
+    token = strtok(firstLine,delim);
+    strcpy(request,token);
+    token = strtok(NULL,delim);
+    strcpy(filename,token);
+    token= strtok(NULL,delim);
+    filesize = atol(token);
+    token=strtok(NULL,delim);
+    part = atoi(token);
+    
+    
+    if(strcmp(request,"GET")==0)
+    getRequest(sock,filename);
+    
+    else if(strcmp(request,"PUT")==0)
+    putRequest(sock,filename,filesize,part);
+    
+    else if(strcmp(request,"LIST")==0)
+    listRequest(sock);
+    
+    else
+    badRequest(sock);
+    
+            /*User t;
             strcpy(t.username,firstLine);
             strcpy(t.password,"password");
     
             Node * node1 = find(info,u);
             printf("Name: %s\n",(node1->u).username);
             printf("Password: %s\n",(node1->u).password);
-            send(sock, (node1->u).password, strlen((node1->u).password),0);
+            send(sock, (node1->u).password, strlen((node1->u).password),0);*/
             
                 //all done so we want to close the socket
     printf("we want to close the socket\n");
