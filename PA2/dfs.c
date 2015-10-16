@@ -10,9 +10,11 @@
 #include <pthread.h>
 #include <sys/types.h>
 #include <dirent.h>
+#include <sys/stat.h>
 
 #include "helper.h"
 
+struct stat st = {0};
 
 
 /*void print_directories ()
@@ -127,14 +129,10 @@ void sendBinary(int sock,char * filename){
     long filesize = GetFileSize(filename);
     
     char contentHeader[100];
-    sprintf(contentHeader,"Content-Length: %ld\r\n\r\n",filesize);
+    sprintf(contentHeader,"Part %s %ld %d\n","test.txt",filesize,1);
     send(sock,contentHeader,strlen(contentHeader),0);
     
-    //printf("File size: %s\n",contentHeader);
     
-    /*char contentAlive[100];
-     sprintf(contentAlive,"Connection: keep alive\r\n\r\n");
-     send(sock,contentAlive,strlen(contentAlive),0);*/
     
     
     size_t total = 0;
@@ -151,21 +149,42 @@ void sendBinary(int sock,char * filename){
     fclose(fp);
 }
 
-void getRequest(int sock,char * filename) {};
+void getRequest(int sock,char * filename) {
+    sendBinary(sock,filename);
+    }
+
 void putRequest(int sock,char * filename, long filesize, int part){
     char buf[1024];
-    FILE *fp = fopen(filename,"wb");
+    char file[256];
+    sprintf(file,"DFS1/.%s.%d",filename,part);
+    printf("%s\n",file);
+    FILE *fp = fopen(file,"wb");
     ssize_t total_read_bytes=0;
     ssize_t read_bytes;
-    printf("filesize: %lu\n",filesize);
-    while (total_read_bytes < filesize) {
+  
+    
+    
         
-        read_bytes = recv(sock, buf,1024,0);
-        total_read_bytes+=read_bytes;
-        fwrite(buf,sizeof(char),read_bytes,fp);
-        printf("total read bytes: %lu\n",total_read_bytes);
-        printf("read bytes: %lu\n",read_bytes);
-    }
+        int remaining = filesize%1024;
+        
+        while(filesize/1024 > 0){
+            read_bytes = recv(sock, buf,1024,0);
+            total_read_bytes+=read_bytes;
+            fwrite(buf,sizeof(char),read_bytes,fp);
+            printf("total read bytes: %lu\n",total_read_bytes);
+            printf("read bytes: %lu\n",read_bytes);
+        }
+        if(remaining>0){
+            read_bytes = recv(sock, buf,remaining,0);
+            total_read_bytes+=read_bytes;
+            fwrite(buf,sizeof(char),read_bytes,fp);
+            printf("total read bytes: %lu\n",total_read_bytes);
+            printf("read bytes: %lu\n",read_bytes);
+            
+        }
+        
+    
+
     fclose(fp);
 }
 void listRequest(int sock) {};
@@ -210,7 +229,7 @@ void *processRequest(void *s) { //,char *document_root) {
     HashTable *info = createHashTable(100);
     User u;
     
-    int port=10000;
+    //int port=10000;
     /*
     strcpy(u.username,"Alex");
     strcpy(u.password,"password");
@@ -221,6 +240,7 @@ void *processRequest(void *s) { //,char *document_root) {
     printf("Password: %s\n",(node->u).password);
 
             //printf("going around again: %d\n",i);*/
+    while(1){
             readRequest(firstLine,sock);
             char request[8];
     char filename[100];
@@ -258,6 +278,7 @@ void *processRequest(void *s) { //,char *document_root) {
             send(sock, (node1->u).password, strlen((node1->u).password),0);*/
             
                 //all done so we want to close the socket
+    }
     printf("we want to close the socket\n");
     close(sock);
     
@@ -323,8 +344,31 @@ void run_server(int port)
 int main() {
   
     
-    int port=10000;
-
+    int port=10001;
+    int server_number = port%4;
+    //server_number=1;
+    if ((server_number==1)&&(stat("DFS1", &st) == -1))
+    mkdir("DFS1",0777);
+    //else if(server_number==1)
+    //chdir("DFS1");
+    else if ((server_number==2)&&(stat("DFS2", &st) == -1))
+    mkdir("DFS2",0777);
+    else if(server_number==2)
+    chdir("DFS2");
+    else if ((server_number==3)&&(stat("DFS3", &st) == -1))
+    mkdir("DFS3",0777);
+    else if(server_number==3)
+    chdir("DFS3");
+    else if((server_number==0)&&(stat("DFS4", &st) == -1))
+    mkdir("DFS4",0777);
+    else if(server_number==0)
+    chdir("DFS4");
+    /*else{
+    printf("Bad Port Number\n");
+    exit(-1);
+    }*/
     
     run_server(port);
+    
+    
 }

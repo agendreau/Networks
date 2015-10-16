@@ -42,9 +42,13 @@ void sendBinary(int sock,char * filename){
     
     long filesize = GetFileSize(filename);
     
+    long part_size = filesize/4;
+    
+    long extra = filesize%4;
+    
     char contentHeader[100];
-    sprintf(contentHeader,"PUT %s %ld %d\n","test.txt",filesize,1);
-    send(sock,contentHeader,strlen(contentHeader),0);
+    //sprintf(contentHeader,"PUT %s %ld %d\n","test.txt",filesize,1);
+    //send(sock,contentHeader,strlen(contentHeader),0);
     
     //printf("File size: %s\n",contentHeader);
     
@@ -56,11 +60,36 @@ void sendBinary(int sock,char * filename){
     size_t total = 0;
     int success;
     fp = fopen(filename,"rb"); //add error checking
+    int add_byte;
+    long bytes_to_read;
     size_t bytesRead;
-    while (( bytesRead = fread( buf, sizeof(char), 1024, fp )) > 0 ) {
+    for(int i=0;i<4;i++){
+        if(extra>0){
+            add_byte=1;
+            extra-=1;
+        }
+        else
+            add_byte=0;
+        bytes_to_read=part_size+add_byte;
+        sprintf(contentHeader,"PUT %s %lu %d\n","test.txt",bytes_to_read,i+1);
+        send(sock,contentHeader,strlen(contentHeader),0);
+        int remaining = bytes_to_read%1024;
+        fseek( fp, i*part_size, SEEK_SET );
+        while(bytes_to_read/1024 > 0){
+            bytesRead=fread( buf, sizeof(char), 1024, fp );
+            success = send(sock, buf, bytesRead,0);
+        }
+        if(remaining>0){
+            bytesRead=fread( buf, sizeof(char), remaining, fp );
+            success = send(sock, buf, bytesRead,0);
+        }
+        
+    }
+    /*size_t bytesRead;
+    while (((bytesRead=fread( buf, sizeof(char), bytes_to_read, fp )) > 0) && total<part_size+1) {
         total+=bytesRead;
         success = send(sock, buf, bytesRead,0);
-    }
+    }*/
     
     //sleep(1);
     //printf("bytes read: %ld\n",total);
@@ -119,9 +148,9 @@ int main(int argc, char *argv[]) {
      * will be read by server
      */
     
-    printf("Please enter the message: ");
-    bzero(buffer,256);
-    fgets(buffer,255,stdin);
+    //printf("Please enter the message: ");
+    //bzero(buffer,256);
+    //fgets(buffer,255,stdin);
     
     sendBinary(sockfd,"testFiles/test.txt");
     
