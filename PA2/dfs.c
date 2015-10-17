@@ -16,6 +16,8 @@
 
 struct stat st = {0};
 
+char directory[16];
+
 
 /*void print_directories ()
 { //http://www.gnu.org/software/libc/manual/html_node/Simple-Directory-Lister.html
@@ -135,10 +137,11 @@ void sendBinary(int sock,char * filename){
     int success;
     
     for(int i=4;i>0;i--){
-        sprintf(file,"DFS1/.%s.%d",filename,i);
+        sprintf(file,"%s.%s.%d",directory,filename,i);
         if( access( file, F_OK ) != -1 ) {
             //long filesize = GetFileSize(file);
             fp = fopen(file,"rb");
+            if(fp!=NULL) {
             bytesRead=fread((char*)&filesize,sizeof(long),1,fp);
             printf("here\n");
             bytesRead=fread((char*)&offset,sizeof(long),1,fp);
@@ -157,6 +160,7 @@ void sendBinary(int sock,char * filename){
                 bytesRead=fread( buf, sizeof(char), remaining, fp );
                 success = send(sock, buf, bytesRead,0);
             }
+            }
             fclose(fp);
         }
   
@@ -171,7 +175,7 @@ void getRequest(int sock,char * filename) {
 void putRequest(int sock,char * filename, long filesize, int part, long offset){
     char buf[1024];
     char file[256];
-    sprintf(file,"DFS1/.%s.%d",filename,part);
+    sprintf(file,"%s.%s.%d",directory,filename,part);
     printf("%s\n",file);
     FILE *fp = fopen(file,"wb");
     ssize_t total_read_bytes=0;
@@ -287,6 +291,10 @@ void *processRequest(void *s) { //,char *document_root) {
     
     else if(strcmp(request,"LIST")==0)
     listRequest(sock);
+        
+        else if(strcmp(request,"CLOSE")==0){
+            break;
+        }
     
     else
     badRequest(sock);
@@ -364,33 +372,34 @@ void run_server(int port)
     
 }
 
-int main() {
+int main(int argc, char *argv[]) {
   
     
-    int port=10001;
+    //int port=10001;
+    int port= atoi(argv[1]);
     int server_number = port%4;
+    sprintf(directory,"DFS%d/",server_number);
     //server_number=1;
     if ((server_number==1)&&(stat("DFS1", &st) == -1))
+        
     mkdir("DFS1",0777);
+    
     //else if(server_number==1)
     //chdir("DFS1");
     else if ((server_number==2)&&(stat("DFS2", &st) == -1))
     mkdir("DFS2",0777);
-    else if(server_number==2)
-    chdir("DFS2");
+    
     else if ((server_number==3)&&(stat("DFS3", &st) == -1))
     mkdir("DFS3",0777);
-    else if(server_number==3)
-    chdir("DFS3");
+   
     else if((server_number==0)&&(stat("DFS4", &st) == -1))
     mkdir("DFS4",0777);
-    else if(server_number==0)
-    chdir("DFS4");
+    
     /*else{
     printf("Bad Port Number\n");
     exit(-1);
     }*/
-    
+    printf("port number:%d\n",port);
     run_server(port);
     
     

@@ -173,52 +173,28 @@ void readLine(char firstLine[], int sock) {
     //printf("%s",firstLine);
 }
 
-void processGetRequest(int sock) {
-struct timeval tv;
-fd_set sockSet;
-
-FD_ZERO(&sockSet);
-
-char firstLine[1024];
-char host[1024];
-char connection[1024];
-char delim[2] = " ";
-char crlf[3] = "\r\n";
-char uri[1024];
-
-char status1[1024];
-char method[16];
-char forSuffix[1024];
-char content[100];
-char http_version[9];
-
-int num = 0;
-char *token;
-char default_file[33];
-int i=0;
-
-
-//int port=10000;
-/*
- strcpy(u.username,"Alex");
- strcpy(u.password,"password");
- int check = insert(info,u);
- printf("check: %d\n",check);
- Node * node = find(info,u);
- printf("Name: %s\n",(node->u).username);
- printf("Password: %s\n",(node->u).password);
- 
- //printf("going around again: %d\n",i);*/
-    int parts[4];
-    parts[0]=parts[1]=parts[2]=parts[3]=0;
-    FILE *fp = fopen("test.txt","wb");
-    int j=0;
-    //select statement;
-while(j<4){
+void processPart(int sock,int parts[], FILE *fp){
+    char firstLine[1024];
+    char host[1024];
+    char connection[1024];
+    char delim[2] = " ";
+    char crlf[3] = "\r\n";
+    char uri[1024];
+    
+    char status1[1024];
+    char method[16];
+    char forSuffix[1024];
+    char content[100];
+    char http_version[9];
+    
+    int num = 0;
+    char *token;
+    char default_file[33];
+    int i=0;
+    
     readLine(firstLine,sock);
     printf("readline: %s\n",firstLine);
-    if(strlen(firstLine)<2)
-        break;
+    
     char request[8];
     char filename[100];
     long filesize;
@@ -238,18 +214,73 @@ while(j<4){
     
     printf("filesize:%lu\n",filesize);
     printf("offset:%lu\n",offset);
-   
+    
     
     
     if(strcmp(request,"Part")==0)
-        receiveBinary(sock,fp,filename,filesize,part,parts,offset);
+    receiveBinary(sock,fp,filename,filesize,part,parts,offset);
     printf("here\n");
-    j++;
 
 }
-    fclose(fp);
+
+void processGetRequest(int * sockets) {
+struct timeval tv;
+fd_set sockSet;
+
+FD_ZERO(&sockSet);
+
+//int port=10000;
+/*
+ strcpy(u.username,"Alex");
+ strcpy(u.password,"password");
+ int check = insert(info,u);
+ printf("check: %d\n",check);
+ Node * node = find(info,u);
+ printf("Name: %s\n",(node->u).username);
+ printf("Password: %s\n",(node->u).password);
+ 
+ //printf("going around again: %d\n",i);*/
+    int parts[4];
+    parts[0]=parts[1]=parts[2]=parts[3]=0;
+    FILE *fp = fopen("test.txt","wb");
+    int j=0;
+    int selRet = 0;
+    //select statement;
+while(1){
+    //reset timer each time around
+    FD_ZERO(&sockSet);
+    FD_SET(sockets[0],&sockSet);
+    FD_SET(sockets[1],&sockSet);
+    tv.tv_sec = 1;
+    tv.tv_usec = 0;
+    
+    selRet = select(sockets[1]+1,&sockSet,NULL,NULL,&tv);
+    if(selRet==0){
+        printf("we timed out\n");
+        fclose(fp);
+        break;
+    }
+    
+    else if(selRet==-1){
+        printf("error in fd set\b");
+        break;
+    }
+    else {//success
+        if (FD_ISSET(sockets[0], &sockSet)) {
+            processPart(sockets[0],parts,fp);
+            
+        }
+        if (FD_ISSET(sockets[1], &sockSet)) {
+            processPart(sockets[1],parts,fp);
+        }
+    
+    
+    }
+
+}
+    
     printf("we want to close the socket\n");
-    close(sock);
+    //close(sock);
     
     
     
@@ -261,26 +292,37 @@ while(j<4){
 
 
 int main(int argc, char *argv[]) {
-    int sockfd, portno, portno2,portno3,portno4,n;
+    int sockfd, portno,portno2,portno3,portno4,n;
     struct sockaddr_in serv_addr;
+    struct sockaddr_in serv_addr1;
     struct hostent *server;
     
     char buffer[256];
+    
+    int ports[4];
+    
+    int sockets[4];
     
     if (argc < 3) {
         fprintf(stderr,"usage %s hostname port\n", argv[0]);
         exit(0);
     }
     
-    portno = atoi(argv[2]);
-    /*portno2 = 10002;
-    portno3 = 10003;
-    portno4 = 10004;*/
+    
+    
+    ports[0] = atoi(argv[2]);
+    ports[1]= 10002;
+    ports[2] = 10003;
+    ports[3] = 10004;
     
     /* Create a socket point */
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    //sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    sockets[0] = socket(AF_INET, SOCK_STREAM, 0);
+    sockets[1] = socket(AF_INET, SOCK_STREAM, 0);
+    //sockets[2] = socket(AF_INET, SOCK_STREAM, 0);
+    //sockets[3] = socket(AF_INET, SOCK_STREAM, 0);
     
-    if (sockfd < 0) {
+    if (sockets[0] < 0) {
         perror("ERROR opening socket");
         exit(1);
     }
@@ -292,13 +334,24 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
     
-    bzero((char *) &serv_addr, sizeof(serv_addr));
-    serv_addr.sin_family = AF_INET;
-    bcopy((char *)server->h_addr, (char *)&serv_addr.sin_addr.s_addr, server->h_length);
-    serv_addr.sin_port = htons(portno);
+    bzero((char *) &(serv_addr), sizeof(serv_addr));
+    (serv_addr).sin_family = AF_INET;
+    bcopy((char *)server->h_addr, (char *)&(serv_addr).sin_addr.s_addr, server->h_length);
+    (serv_addr).sin_port = htons(ports[0]);
     
     /* Now connect to the server */
-    if (connect(sockfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) < 0) {
+    if (connect(sockets[0], (struct sockaddr*)&(serv_addr), sizeof(serv_addr)) < 0) {
+        perror("ERROR connecting");
+        exit(1);
+    }
+    
+    bzero((char *) &(serv_addr1), sizeof(serv_addr1));
+    (serv_addr1).sin_family = AF_INET;
+    bcopy((char *)server->h_addr, (char *)&(serv_addr1).sin_addr.s_addr, server->h_length);
+    (serv_addr1).sin_port = htons(ports[1]);
+    
+    /* Now connect to the server */
+    if (connect(sockets[1], (struct sockaddr*)&(serv_addr1), sizeof(serv_addr1)) < 0) {
         perror("ERROR connecting");
         exit(1);
     }
@@ -311,13 +364,19 @@ int main(int argc, char *argv[]) {
     //bzero(buffer,256);
     //fgets(buffer,255,stdin);
     
-    //sendBinary(sockfd,"testFiles/test.txt");
+    //sendBinary(sockets[1],"testFiles/test.txt");
     char contentHeader[100];
     long x = 0;
     sprintf(contentHeader,"GET %s %lu %d %lu\n","test.txt",x,0,x);
-    send(sockfd,contentHeader,strlen(contentHeader),0);
+    send(sockets[0],contentHeader,strlen(contentHeader),0);
+    send(sockets[1],contentHeader,strlen(contentHeader),0);
 
-    processGetRequest(sockfd);
+    processGetRequest(sockets);
+    sprintf(contentHeader,"CLOSE %s %lu %d %lu\n","test.txt",x,0,x);
+    send(sockets[0],contentHeader,strlen(contentHeader),0);
+    send(sockets[1],contentHeader,strlen(contentHeader),0);
+    close(sockets[0]);
+    close(sockets[1]);
     
     /* Send message to the server */
     //n = write(sockfd, buffer, strlen(buffer));
