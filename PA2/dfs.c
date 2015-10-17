@@ -128,16 +128,25 @@ void sendBinary(int sock,char * filename){
     char contentHeader[100];
     FILE *fp;
     
+    long filesize;
+    long offset;
+    
     size_t bytesRead;
     int success;
     
-    for(int i=1;i<5;i++){
+    for(int i=4;i>0;i--){
         sprintf(file,"DFS1/.%s.%d",filename,i);
         if( access( file, F_OK ) != -1 ) {
             //long filesize = GetFileSize(file);
-            //bytesRead=fread(buf,sizeof(long),2*sizeof(long),fp)
-            sprintf(contentHeader,"Part %s %ld %d %ld\n",filename,filesize,i,offset);
             fp = fopen(file,"rb");
+            bytesRead=fread((char*)&filesize,sizeof(long),1,fp);
+            printf("here\n");
+            bytesRead=fread((char*)&offset,sizeof(long),1,fp);
+            printf("filesize: %lu\n",filesize);
+            printf("offset: %lu\n",offset);
+            
+            sprintf(contentHeader,"Part %s %ld %d %ld\n",filename,filesize,i,offset);
+            
             send(sock,contentHeader,strlen(contentHeader),0);
             int remaining = filesize%1024;
             while(filesize/1024 > 0){
@@ -168,7 +177,7 @@ void putRequest(int sock,char * filename, long filesize, int part, long offset){
     ssize_t total_read_bytes=0;
     ssize_t read_bytes;
     
-  
+    printf("part:%d,offset:%lu,filesize:%lu\n",part,offset,filesize);
     fwrite(&filesize,sizeof(long),1,fp);
     fwrite(&offset,sizeof(long),1,fp);
     

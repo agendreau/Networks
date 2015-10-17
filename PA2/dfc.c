@@ -98,7 +98,8 @@ void sendBinary(int sock,char * filename){
     fclose(fp);
 }
 
-void receiveBinary(int sock,FILE * fp,char * filename, long filesize, int part, int parts[]){
+void receiveBinary(int sock,FILE * fp,char * filename, long filesize,
+                   int part, int parts[],long offset){
     char buf[1024];
     char file[256];
     //sprintf(file,"DFS1/.%s.%d",filename,part);
@@ -107,7 +108,9 @@ void receiveBinary(int sock,FILE * fp,char * filename, long filesize, int part, 
     ssize_t total_read_bytes=0;
     ssize_t read_bytes;
     
-    if(part==1)
+    fseek(fp,offset,SEEK_SET);
+    
+    /*if(part==1)
         fseek( fp, 0, SEEK_SET );
     
     else if(part==2)
@@ -117,7 +120,7 @@ void receiveBinary(int sock,FILE * fp,char * filename, long filesize, int part, 
         fseek(fp,parts[0]+parts[1],SEEK_SET);
     
     else
-        fseek(fp,parts[0]+parts[1]+parts[2],SEEK_SET);
+        fseek(fp,parts[0]+parts[1]+parts[2],SEEK_SET);*/
     
    
     
@@ -220,6 +223,7 @@ while(j<4){
     char filename[100];
     long filesize;
     int part;
+    long offset;
     printf("request: %s\n",firstLine);
     token = strtok(firstLine,delim);
     strcpy(request,token);
@@ -229,10 +233,16 @@ while(j<4){
     filesize = atol(token);
     token=strtok(NULL,delim);
     part = atoi(token);
+    token=strtok(NULL,delim);
+    offset=atol(token);
+    
+    printf("filesize:%lu\n",filesize);
+    printf("offset:%lu\n",offset);
+   
     
     
     if(strcmp(request,"Part")==0)
-        receiveBinary(sock,fp,filename,filesize,part,parts);
+        receiveBinary(sock,fp,filename,filesize,part,parts,offset);
     printf("here\n");
     j++;
 
@@ -301,13 +311,13 @@ int main(int argc, char *argv[]) {
     //bzero(buffer,256);
     //fgets(buffer,255,stdin);
     
-    sendBinary(sockfd,"testFiles/test.txt");
-    //char contentHeader[100];
-    //long x = 0;
-    //sprintf(contentHeader,"GET %s %lu %d\n","test.txt",x,0);
-    //send(sockfd,contentHeader,strlen(contentHeader),0);
+    //sendBinary(sockfd,"testFiles/test.txt");
+    char contentHeader[100];
+    long x = 0;
+    sprintf(contentHeader,"GET %s %lu %d %lu\n","test.txt",x,0,x);
+    send(sockfd,contentHeader,strlen(contentHeader),0);
 
-    //processGetRequest(sockfd);
+    processGetRequest(sockfd);
     
     /* Send message to the server */
     //n = write(sockfd, buffer, strlen(buffer));
