@@ -249,24 +249,27 @@ void *processRequest(void *s) { //,char *document_root) {
     int i=0;
     long offset;
     HashTable *info = createHashTable(100);
+    User login;
     User u;
     
     //int port=10000;
-    /*
+    
     strcpy(u.username,"Alex");
     strcpy(u.password,"password");
     int check = insert(info,u);
-    printf("check: %d\n",check);
-    Node * node = find(info,u);
+    //printf("check: %d\n",check);
+    
+    /*Node * node = find(info,u);
     printf("Name: %s\n",(node->u).username);
-    printf("Password: %s\n",(node->u).password);
+    printf("Password: %s\n",(node->u).password);*/
 
             //printf("going around again: %d\n",i);*/
     while(1){
             readRequest(firstLine,sock);
-            char request[8];
+        printf("request: %s\n",firstLine);
+    char request[10];
     char filename[100];
-            long filesize;
+    long filesize;
     int part;
     token = strtok(firstLine,delim);
     strcpy(request,token);
@@ -276,9 +279,11 @@ void *processRequest(void *s) { //,char *document_root) {
     filesize = atol(token);
     token=strtok(NULL,delim);
     part = atoi(token);
-        token = strtok(NULL,delim);
-        offset = atol(token);
+    token = strtok(NULL,delim);
+    offset = atol(token);
+        
     
+        printf("request: %s\n",request);
     
         if(strcmp(request,"GET")==0) {
             printf("get request\n");
@@ -295,9 +300,33 @@ void *processRequest(void *s) { //,char *document_root) {
         else if(strcmp(request,"CLOSE")==0){
             break;
         }
+        
+        else if(strcmp(request,"User")==0){
+            printf("got username\n");
+            strcpy(login.username,filename);
+            printf("username: %s\n",login.username);
+        }
+        
+        else if(strcmp(request,"Password")==0){
+            printf("got password\n");
+            strcpy(login.password,filename);
+            Node * node = find(info,login);
+            if(node==NULL){
+                printf("bad\n");
+                char * mesg = "0";
+                send(sock,mesg,strlen(mesg),0);
+            }
+            
+            else {
+                printf("good\n");
+                char * mesg = "1";
+                send(sock,mesg,strlen(mesg),0);
+            }
+          
+        }
     
-    else
-    badRequest(sock);
+    /*else
+    badRequest(sock);*/
     
             /*User t;
             strcpy(t.username,firstLine);
