@@ -439,6 +439,8 @@ int main(int argc, char *argv[]) {
     //int port=10001;
     int port= atoi(argv[1]);
     int server_number = port%4;
+    if(server_number==0)
+        server_number=4;
     sprintf(directory,"DFS%d/",server_number);
     //server_number=1;
     if ((server_number==1)&&(stat("DFS1", &st) == -1))
@@ -453,7 +455,7 @@ int main(int argc, char *argv[]) {
     else if ((server_number==3)&&(stat("DFS3", &st) == -1))
     mkdir("DFS3",0777);
    
-    else if((server_number==0)&&(stat("DFS4", &st) == -1))
+    else if((server_number==4)&&(stat("DFS4", &st) == -1))
     mkdir("DFS4",0777);
     
     /*else{

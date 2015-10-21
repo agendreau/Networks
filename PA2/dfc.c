@@ -12,6 +12,8 @@
 
 //#include "helper.h"
 
+int numServers=4;
+int maxSocket;
 
 //http://www.sparknotes.com/cs/searching/hashtables/section3/page/2/
 
@@ -172,17 +174,21 @@ void sendBinary(int * sockets,char * filename){
         bytes_to_read=part_size+add_byte;
         sprintf(contentHeader,"PUT %s %lu %d %lu\n",filename,bytes_to_read,i+1,total);
         send(sockets[i%2],contentHeader,strlen(contentHeader),0);
+        send(sockets[(i%2)+2],contentHeader,strlen(contentHeader),0);
         int remaining = bytes_to_read%1024;
         fseek( fp, total, SEEK_SET );
         while(bytes_to_read/1024 > 0){
             bytesRead=fread( buf, sizeof(char), 1024, fp );
             total+=bytesRead;
             success = send(sockets[i%2], buf, bytesRead,0);
+            success = send(sockets[(i%2)+2], buf, bytesRead,0);
+            
         }
         if(remaining>0){
             bytesRead=fread( buf, sizeof(char), remaining, fp );
             total+=bytesRead;
             success = send(sockets[i%2], buf, bytesRead,0);
+            success = send(sockets[(i%2)+2], buf, bytesRead,0);
         }
         
     }
@@ -243,7 +249,7 @@ void readLine(char firstLine[], int sock) {
     char c;
     int len;
     len = recv(sock, &c, 1, 0);
-    //printf("%c\n",c);
+        //printf("%c\n",c);
     while (len == 1 && c != '\n') {
         firstLine[i] = c;;
         i++;
@@ -251,6 +257,7 @@ void readLine(char firstLine[], int sock) {
     }
     firstLine[i] = '\n';
     firstLine[i+1] = '\0';
+    printf("firstline from socket(%d): %s\n",sock,firstLine);
     //trying to do some error handling, wasn't working very well
     /*if(len==-1){
      printf("error in read line\n");
@@ -266,6 +273,7 @@ void readList(char firstLine[], int sock) {
     char c;
     int len;
     len = recv(sock, &c, 1, 0);
+    
     //printf("%c\n",c);
     while (len == 1 && c != '\n') {
         firstLine[i] = c;;
@@ -274,6 +282,7 @@ void readList(char firstLine[], int sock) {
     }
     firstLine[i] = '\n';
     firstLine[i+1] = '\0';
+    printf("firstline from socket(%d): %s\n",sock,firstLine);
     //trying to do some error handling, wasn't working very well
     /*if(len==-1){
      printf("error in read line\n");
@@ -284,7 +293,7 @@ void readList(char firstLine[], int sock) {
     //printf("%s",firstLine);
 }
 
-void processPart(int sock,int parts[], FILE *fp){
+int processPart(int sock,int parts[], FILE *fp){
     
     char firstLine[1024];
     char request[8];
@@ -297,6 +306,9 @@ void processPart(int sock,int parts[], FILE *fp){
     
     readLine(firstLine,sock);
     printf("readline: %s\n",firstLine);
+    
+    if(strcmp(firstLine,"\n")==0)
+        return -1;
     
     
     printf("request: %s\n",firstLine);
@@ -316,6 +328,8 @@ void processPart(int sock,int parts[], FILE *fp){
     
     if(strcmp(request,"Part")==0)
         receiveBinary(sock,fp,filename,filesize,part,parts,offset);
+    
+    return 0;
 
 }
 
@@ -331,16 +345,24 @@ void processGetRequest(int * sockets, char * filename) {
     FILE *fp = fopen(filename,"wb");
     int j=0;
     int selRet = 0;
+    int openSocket;
     //select statement;
+    //int maxSocket = sockets[numServers-1];
     while(1){
         //reset timer each time around
         FD_ZERO(&sockSet);
-        FD_SET(sockets[0],&sockSet);
-        FD_SET(sockets[1],&sockSet);
+        for(j=0;j<numServers;j++){
+            if(sockets[j]!=-1) {//only add good sockets
+                printf("here\n");
+                FD_SET(sockets[j],&sockSet);
+            }
+        }
+        //FD_SET(sockets[0],&sockSet);
+        //FD_SET(sockets[1],&sockSet);
         tv.tv_sec = 1;
         tv.tv_usec = 0;
         
-        selRet = select(sockets[1]+1,&sockSet,NULL,NULL,&tv);
+        selRet = select(maxSocket+1,&sockSet,NULL,NULL,&tv);
         if(selRet==0){
             printf("we timed out\n");
             fclose(fp);
@@ -352,22 +374,29 @@ void processGetRequest(int * sockets, char * filename) {
             break;
         }
         else {//success
-            for(int i=0;i<2;i++){
-                if (FD_ISSET(sockets[i], &sockSet)) {
-                    processPart(sockets[i],parts,fp);
+            for(int i=0;i<numServers;i++){
+                printf("check set ");
+                printf("%d\n",sockets[i]);
+                if (sockets[i]!=-1 && FD_ISSET(sockets[i], &sockSet)) {
+                    printf("socket\n");
+                    printf("what socket: %d\n",sockets[i]);
+                    openSocket = processPart(sockets[i],parts,fp);
+                    printf("successread: %d\n",openSocket);
+                    if(openSocket==-1)
+                        sockets[i]=-1;
                 }
             }
         }
     }
     
-    if(parts[0]==parts[1]==parts[2]==parts[3]!=1){
+    if(parts[0]!=1 || parts[1]!=1 || parts[2]!=1 || parts[3]!=1){
         printf("file incomplete\n");
     }
     
 
 }
 
-void processListServer(int sock,HashFileTable *ht){
+int processListServer(int sock,HashFileTable *ht){
     char firstLine[1024];
     char request[8];
     char filename[100];
@@ -382,7 +411,8 @@ void processListServer(int sock,HashFileTable *ht){
     readList(firstLine,sock);
     printf("readline: %s\n",firstLine);
     
-    
+    if(strcmp(firstLine,"\n")==0)
+        return -1;
     
     token = strtok(firstLine,delim);
     //token = strtok(NULL,delim);
@@ -402,11 +432,14 @@ void processListServer(int sock,HashFileTable *ht){
     //f.part[part-1]=1;
     FileList * node = find(ht,f);
     if(node==NULL){
+        printf("new node: %s\n",f.filename);
         f.part[part-1]=1;
         insert(ht,f);
     }
     else
         (node->f).part[part-1]=1;
+    
+    return 0;
     
 }
 
@@ -421,42 +454,53 @@ void processListRequest(int * sockets) {
     
     int j=0;
     int selRet = 0;
+    int openSocket;
+    
     //select statement;
     HashFileTable *list = createHashTable(100);
     while(1){
         //reset timer each time around
         FD_ZERO(&sockSet);
-        FD_SET(sockets[0],&sockSet);
-        FD_SET(sockets[1],&sockSet);
+        for(j=0;j<numServers;j++){
+            if(sockets[j]!=-1) {//only add good sockets
+                printf("here\n");
+                FD_SET(sockets[j],&sockSet);
+            }
+        }
+        //FD_SET(sockets[0],&sockSet);
+        //FD_SET(sockets[1],&sockSet);
         tv.tv_sec = 1;
         tv.tv_usec = 0;
         
-        selRet = select(sockets[1]+1,&sockSet,NULL,NULL,&tv);
+        selRet = select(maxSocket+1,&sockSet,NULL,NULL,&tv);
         if(selRet==0){
             printf("we timed out\n");
             break;
         }
         
         else if(selRet==-1){
-            printf("error in fd set\b");
+            printf("error in fd set\n");
             break;
         }
         else {//success
-            for(int i=0;i<2;i++){
-                if (FD_ISSET(sockets[i], &sockSet)) {
-                    processListServer(sockets[i],list);
+            for(int i=0;i<numServers;i++){
+                if (sockets[i]!=-1 && FD_ISSET(sockets[i], &sockSet)) {
+                    openSocket = processListServer(sockets[i],list);
+                    printf("successread: %d\n",openSocket);
+                    if(openSocket==-1)
+                        sockets[i]=-1;
                 }
             }
         }
     }
-    File_ test_file;
-    strcpy(test_file.filename,"test.txt");
-    FileList *test = find(list,test_file);
-    printf("found: %d\n",test!=NULL);
-    printf("part0: %d\n",(test->f).part[0]);
-    printf("part0: %d\n",(test->f).part[1]);
-    printf("part0: %d\n",(test->f).part[2]);
-    printf("part0: %d\n",(test->f).part[3]);
+    //File_ test_file;
+    //strcpy(test_file.filename,"test.txt");
+    //FileList *test = find(list,test_file);
+    //printf("found: %d\n",test!=NULL);
+    //printf("part0: %d\n",(test->f).part[0]);
+    //printf("part0: %d\n",(test->f).part[1]);
+    //printf("part0: %d\n",(test->f).part[2]);
+    //printf("part0: %d\n",(test->f).part[3]);
     //iterate through hash and print if complete
     int i;
     FileList *node, *temp;
@@ -501,7 +545,7 @@ int communicate(int * sockets){
     long offset;
     char delim[2] = " ";
     char *token;
-    int numServers=2;
+    //int numServers=2;
     
     char contentHeader[100];
     long x = 0;
@@ -509,12 +553,20 @@ int communicate(int * sockets){
     int result = 0;
     
     char buffer[256];
-
     
+    for(int k=0;k<numServers;k++){
+        printf("socket number: %d\n",sockets[k]);
+    }
+
+    maxSocket=sockets[numServers-1];
     while(1){
         printf("Please enter the message: ");
         bzero(buffer,256);
         fgets(buffer,255,stdin);
+        
+        for(int k=0;k<numServers;k++){
+            printf("socket number: %d\n",sockets[k]);
+        }
         
         token=strtok(buffer,delim);
         strcpy(request,token);
@@ -526,8 +578,14 @@ int communicate(int * sockets){
             strtok(filename,"\n");
             printf("filename: %s\n",filename);
             sprintf(contentHeader,"GET %s %lu %d %lu\n",filename,x,0,x);
-            for(int i=0;i<numServers;i++)
-                send(sockets[i],contentHeader,strlen(contentHeader),0);
+            int success;
+            for(int i=0;i<numServers;i++) {
+                success=send(sockets[i],contentHeader,strlen(contentHeader),0);
+                printf("success: %d\n",success);
+                if(success==-1) {
+                    sockets[i]=-1;
+                }
+            }
             processGetRequest(sockets,filename);
         }
         
@@ -582,6 +640,8 @@ int main(int argc, char *argv[]) {
     int sockfd, portno,portno2,portno3,portno4,n;
     struct sockaddr_in serv_addr;
     struct sockaddr_in serv_addr1;
+    struct sockaddr_in serv_addr2;
+    struct sockaddr_in serv_addr3;
     struct hostent *server;
     
     char contentHeader[100];
@@ -590,7 +650,7 @@ int main(int argc, char *argv[]) {
     
     char buffer[256];
     
-    int numServers=2;
+    //int numServers=2;
     
     int ports[4];
     
@@ -612,8 +672,8 @@ int main(int argc, char *argv[]) {
     //sockfd = socket(AF_INET, SOCK_STREAM, 0);
     sockets[0] = socket(AF_INET, SOCK_STREAM, 0);
     sockets[1] = socket(AF_INET, SOCK_STREAM, 0);
-    //sockets[2] = socket(AF_INET, SOCK_STREAM, 0);
-    //sockets[3] = socket(AF_INET, SOCK_STREAM, 0);
+    sockets[2] = socket(AF_INET, SOCK_STREAM, 0);
+    sockets[3] = socket(AF_INET, SOCK_STREAM, 0);
     
     if (sockets[0] < 0) {
         perror("ERROR opening socket");
@@ -634,8 +694,8 @@ int main(int argc, char *argv[]) {
     
     /* Now connect to the server */
     if (connect(sockets[0], (struct sockaddr*)&(serv_addr), sizeof(serv_addr)) < 0) {
-        perror("ERROR connecting");
-        exit(1);
+        printf("ERROR connecting to server %d\n",ports[0]);
+        //exit(1);
     }
     
     bzero((char *) &(serv_addr1), sizeof(serv_addr1));
@@ -645,8 +705,30 @@ int main(int argc, char *argv[]) {
     
     /* Now connect to the server */
     if (connect(sockets[1], (struct sockaddr*)&(serv_addr1), sizeof(serv_addr1)) < 0) {
-        perror("ERROR connecting");
-        exit(1);
+        printf("ERROR connecting to server %d\n",ports[1]);
+        //exit(1);
+    }
+    
+    bzero((char *) &(serv_addr2), sizeof(serv_addr2));
+    (serv_addr2).sin_family = AF_INET;
+    bcopy((char *)server->h_addr, (char *)&(serv_addr2).sin_addr.s_addr, server->h_length);
+    (serv_addr2).sin_port = htons(ports[2]);
+    
+    /* Now connect to the server */
+    if (connect(sockets[2], (struct sockaddr*)&(serv_addr2), sizeof(serv_addr2)) < 0) {
+        printf("ERROR connecting to server %d\n",ports[2]);
+        //exit(1);
+    }
+    
+    bzero((char *) &(serv_addr3), sizeof(serv_addr3));
+    (serv_addr3).sin_family = AF_INET;
+    bcopy((char *)server->h_addr, (char *)&(serv_addr3).sin_addr.s_addr, server->h_length);
+    (serv_addr3).sin_port = htons(ports[3]);
+    
+    /* Now connect to the server */
+    if (connect(sockets[3], (struct sockaddr*)&(serv_addr3), sizeof(serv_addr3)) < 0) {
+        printf("ERROR connecting to server %d\n",ports[3]);
+        //exit(1);
     }
     
     /* Now ask for a message from the user, this message
