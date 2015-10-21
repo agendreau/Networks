@@ -10,8 +10,114 @@
 #include <pthread.h>
 #include <netdb.h>
 
-#include "helper.h"
+//#include "helper.h"
 
+
+//http://www.sparknotes.com/cs/searching/hashtables/section3/page/2/
+
+typedef struct {
+    char filename[256];
+    int part[4];
+} File_;
+
+struct FileList {
+    File_ f;
+    struct FileList *next;
+};
+
+struct FileList;
+typedef struct FileList FileList;
+
+typedef struct {
+    int size;
+    FileList **table;
+} HashFileTable;
+
+
+HashFileTable *createHashTable(int size)
+{
+    HashFileTable *newTable;
+    
+    if (size<1) return NULL; /* invalid size for table */
+    
+    /* Attempt to allocate memory for the table structure */
+    if ((newTable = malloc(sizeof(unsigned int))) == NULL) {
+        return NULL;
+    }
+    
+    /* Attempt to allocate memory for the table itself */
+    if ((newTable->table = malloc(sizeof(FileList *) * size)) == NULL) {
+        return NULL;
+    }
+    
+    /* Initialize the elements of the table */
+    for(int i=0; i<size; i++) newTable->table[i] = NULL;
+    
+    /* Set the table's size */
+    newTable->size = size;
+    
+    return newTable;
+}
+
+unsigned int hashValue(File_ file,HashFileTable *ht){
+    unsigned int hv = strlen(file.filename) % (ht->size);
+    //printf("hash value: %u\n",hv);
+    return hv;
+}
+
+FileList * find(HashFileTable *ht,File_ file){
+    unsigned int hv = hashValue(file,ht);
+    FileList *node;
+    for(node=ht->table[hv];node!=NULL;node=node->next){
+        if(strcmp(file.filename,(node->f).filename)==0)
+        return node;
+    }
+    return NULL;
+    
+}
+
+int insert(HashFileTable *ht,File_ file){
+    FileList *newNode;
+    FileList *currentNode;
+    unsigned int hv = hashValue(file,ht);
+    
+    if ((newNode = malloc(sizeof(FileList))) == NULL) return 1; //failed to allocate memory
+    
+    currentNode = find(ht,file);
+    if(currentNode!=NULL) return 2; //already exists
+    //newNode->User = malloc(sizeof(User));
+    newNode->f = file;
+    newNode->next = ht->table[hv];
+    ht->table[hv]=newNode;
+    //printf("Name: %s\n",(ht->table[hv]->u).username);
+    //printf("Password: %s\n",(ht->table[hv]->u).password);
+    return 0;
+}
+
+void free_table(HashFileTable *ht)
+{
+    int i;
+    FileList *node, *temp;
+    
+    if (ht==NULL) return;
+    
+    /* Free the memory for every item in the table, including the
+     * strings themselves.
+     */
+    for(i=0; i<ht->size; i++) {
+        node = ht->table[i];
+        while(node!=NULL) {
+            temp = node;
+            node = node->next;
+            //free(temp->u);
+            free(temp);
+        }
+    }
+    
+    /* Free the table itself */
+    free(ht->table);
+    free(ht);
+}
 
 
 
@@ -155,6 +261,29 @@ void readLine(char firstLine[], int sock) {
     //printf("%s",firstLine);
 }
 
+void readList(char firstLine[], int sock) {
+    int i = 0;
+    char c;
+    int len;
+    len = recv(sock, &c, 1, 0);
+    //printf("%c\n",c);
+    while (len == 1 && c != '\n') {
+        firstLine[i] = c;;
+        i++;
+        len = recv(sock, &c, 1, 0);
+    }
+    firstLine[i] = '\n';
+    firstLine[i+1] = '\0';
+    //trying to do some error handling, wasn't working very well
+    /*if(len==-1){
+     printf("error in read line\n");
+     return 0;
+     }
+     else
+     return 1;*/
+    //printf("%s",firstLine);
+}
+
 void processPart(int sock,int parts[], FILE *fp){
     
     char firstLine[1024];
@@ -238,6 +367,131 @@ void processGetRequest(int * sockets, char * filename) {
 
 }
 
+void processListServer(int sock,HashFileTable *ht){
+    char firstLine[1024];
+    char request[8];
+    char filename[100];
+    char prefix[100];
+    char suffix[100];
+    long filesize;
+    int part;
+    long offset;
+    char delim[2] = ".";
+    char *token;
+    
+    readList(firstLine,sock);
+    printf("readline: %s\n",firstLine);
+    
+    
+    
+    token = strtok(firstLine,delim);
+    //token = strtok(NULL,delim);
+    strcpy(prefix,token);
+    printf("prefix: %s\n",prefix);
+    token= strtok(NULL,delim);
+    strcpy(suffix,token);
+    printf("suffix: %s\n",suffix);
+    token= strtok(NULL,delim);
+    part = atoi(token);
+    printf("part: %d\n",part);
+    
+    sprintf(filename,"%s.%s",prefix,suffix);
+    
+    File_ f;
+    strcpy(f.filename,filename);
+    //f.part[part-1]=1;
+    FileList * node = find(ht,f);
+    if(node==NULL){
+        f.part[part-1]=1;
+        insert(ht,f);
+    }
+    else
+        (node->f).part[part-1]=1;
+    
+}
+
+void processListRequest(int * sockets) {
+    struct timeval tv;
+    fd_set sockSet;
+    
+    FD_ZERO(&sockSet);
+    
+    
+    int parts[4];
+    
+    int j=0;
+    int selRet = 0;
+    //select statement;
+    HashFileTable *list = createHashTable(100);
+    while(1){
+        //reset timer each time around
+        FD_ZERO(&sockSet);
+        FD_SET(sockets[0],&sockSet);
+        FD_SET(sockets[1],&sockSet);
+        tv.tv_sec = 1;
+        tv.tv_usec = 0;
+        
+        selRet = select(sockets[1]+1,&sockSet,NULL,NULL,&tv);
+        if(selRet==0){
+            printf("we timed out\n");
+            break;
+        }
+        
+        else if(selRet==-1){
+            printf("error in fd set\b");
+            break;
+        }
+        else {//success
+            for(int i=0;i<2;i++){
+                if (FD_ISSET(sockets[i], &sockSet)) {
+                    processListServer(sockets[i],list);
+                }
+            }
+        }
+    }
+    File_ test_file;
+    strcpy(test_file.filename,"test.txt");
+    FileList *test = find(list,test_file);
+    printf("found: %d\n",test!=NULL);
+    printf("part0: %d\n",(test->f).part[0]);
+    printf("part0: %d\n",(test->f).part[1]);
+    printf("part0: %d\n",(test->f).part[2]);
+    printf("part0: %d\n",(test->f).part[3]);
+    //iterate through hash and print if complete
+    int i;
+    FileList *node, *temp;
+    
+    if (list!=NULL) {
+    
+    /* Free the memory for every item in the table, including the
+     * strings themselves.
+     */
+    for(i=0; i<list->size; i++) {
+        node = list->table[i];
+        while(node!=NULL) {
+            temp = node;
+            if((node->f).part[0]==1 && (node->f).part[1]==1 &&
+               (node->f).part[2]==1 && (node->f).part[3]==1)
+                printf("%s\n",(node->f).filename);
+            else
+                printf("%s [file incomplete]\n",(node->f).filename);
+            node = node->next;
+            free(temp);
+        }
+    }
+    
+    /* Free the table itself */
+    free(list->table);
+        
+    free(list);
+    }
+}
+
+
+
+           
+           
+
 int communicate(int * sockets){
     char firstLine[1024];
     char request[8];
@@ -278,7 +532,13 @@ int communicate(int * sockets){
         }
         
         else if(strcmp("LIST",request)==0){
-            printf("to be implemented\n");
+            printf("process list request\n");
+
+            sprintf(contentHeader,"LIST %s %lu %d %lu\n","test.txt",x,0,x);
+            for(int i=0;i<numServers;i++)
+                send(sockets[i],contentHeader,strlen(contentHeader),0);
+            processListRequest(sockets);
+            //printf("to be implemented\n");
         }
         
         

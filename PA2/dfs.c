@@ -201,14 +201,46 @@ void putRequest(int sock,char * filename, long filesize, int part, long offset){
             fwrite(buf,sizeof(char),read_bytes,fp);
             printf("total read bytes: %lu\n",total_read_bytes);
             printf("read bytes: %lu\n",read_bytes);
-            
+        
         }
         
     
 
     fclose(fp);
 }
-void listRequest(int sock) {};
+void listRequest(int sock) {
+    
+        DIR *dp;
+        struct dirent *ep;
+    
+        int success;
+        char filename[257];
+    
+        dp = opendir (directory);
+        if (dp != NULL)
+        {
+            while ((ep = readdir (dp))){
+                if ( !strcmp(ep->d_name, ".") || !strcmp(ep->d_name, "..") ){
+                    //dumb stuff
+                }
+                else {
+                    printf("we want to send\n");
+                    printf("%s\n",ep->d_name);
+                    sprintf(filename,"%s\n",ep->d_name);
+                    
+                    success = send(sock, filename, sizeof(char)*strlen(filename),0);
+                }
+            }
+            
+            //puts (ep->d_name);
+            (void) closedir (dp);
+        }
+        else
+        perror ("Couldn't open the directory");
+    
+    
+
+}
 void badRequest(int sock) {};
 
 /* Processes the client request
