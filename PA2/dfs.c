@@ -18,6 +18,8 @@ struct stat st = {0};
 
 char directory[16];
 
+char toplevel[256];
+
 
 /*void print_directories ()
 { //http://www.gnu.org/software/libc/manual/html_node/Simple-Directory-Lister.html
@@ -285,12 +287,19 @@ void *processRequest(void *s) { //,char *document_root) {
     HashTable *info = createHashTable(100);
     User login;
     User u;
+    User u1;
     
     //int port=10000;
     
     strcpy(u.username,"Alex");
     strcpy(u.password,"password");
     int check = insert(info,u);
+    
+    strcpy(u1.username,"Alex");
+    strcpy(u1.password,"pwd");
+    int check1 = insert(info,u1);
+    
+    
     //printf("check: %d\n",check);
     
     /*Node * node = find(info,u);
@@ -343,8 +352,10 @@ void *processRequest(void *s) { //,char *document_root) {
         
         else if(strcmp(request,"Password")==0){
             printf("got password\n");
+            printf("password:%s\n",filename);
             strcpy(login.password,filename);
             Node * node = find(info,login);
+            
             if(node==NULL){
                 printf("bad\n");
                 char * mesg = "0";
@@ -354,11 +365,18 @@ void *processRequest(void *s) { //,char *document_root) {
             else {
                 if (stat(login.username, &st) == -1)
                     mkdir(login.username,0777);
+                char user_directory[256];
+                sprintf(user_directory,"%d%s",(node->u).usernumber,login.username);
                 if(chdir(login.username) != 0) {
                     printf("oops couldn't change into user directory\n");
                     break;
                 }
-                
+                if(stat(user_directory,&st)==-1)
+                    mkdir(user_directory,0777);
+                if(chdir(user_directory) != 0) {
+                    printf("oops couldn't change into specfic user directory\n");
+                    break;
+                }
                 printf("good\n");
                 char * mesg = "1";
                 send(sock,mesg,strlen(mesg),0);
@@ -382,6 +400,8 @@ void *processRequest(void *s) { //,char *document_root) {
     }
     printf("we want to close the socket\n");
     close(sock);
+    if(chdir(toplevel)!=0)
+    printf("error in resetting\n");
     
     return NULL;
 }
@@ -440,6 +460,7 @@ void run_server(int port)
     }
     close(sock);
     
+    
 }
 
 int main(int argc, char *argv[]) {
@@ -470,7 +491,12 @@ int main(int argc, char *argv[]) {
         printf("error changing into correct directory\n");
         exit(-1);
     }
-    
+    if (getcwd(toplevel, sizeof(toplevel)) != NULL)
+    fprintf(stdout, "Current working dir: %s\n", toplevel);
+    else
+    perror("getcwd() error");
+   
+
     /*else{
     printf("Bad Port Number\n");
     exit(-1);

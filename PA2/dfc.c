@@ -741,7 +741,7 @@ int main(int argc, char *argv[]) {
         send(sockets[i],contentHeader,strlen(contentHeader),0);
     
     printf("we want to send the password\n");
-    sprintf(contentHeader,"Password %s %lu %d %lu\n","password",x,0,x);
+    sprintf(contentHeader,"Password %s %lu %d %lu\n","pwd",x,0,x);
     for(int j=0;j<numServers;j++){
         printf("Sending: %d\n",j);
         send(sockets[j],contentHeader,strlen(contentHeader),0);
