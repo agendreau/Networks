@@ -137,7 +137,7 @@ void sendBinary(int sock,char * filename){
     int success;
     
     for(int i=4;i>0;i--){
-        sprintf(file,"%s.%s.%d",directory,filename,i);
+        sprintf(file,".%s.%d",filename,i);
         if( access( file, F_OK ) != -1 ) {
             //long filesize = GetFileSize(file);
             fp = fopen(file,"rb");
@@ -175,7 +175,8 @@ void getRequest(int sock,char * filename) {
 void putRequest(int sock,char * filename, long filesize, int part, long offset){
     char buf[1024];
     char file[256];
-    sprintf(file,"%s.%s.%d",directory,filename,part);
+    //sprintf(file,"%s.%s.%d",directory,filename,part);
+    sprintf(file,".%s.%d",filename,part);
     printf("%s\n",file);
     FILE *fp = fopen(file,"wb");
     ssize_t total_read_bytes=0;
@@ -216,7 +217,8 @@ void listRequest(int sock) {
         int success;
         char filename[257];
     
-        dp = opendir (directory);
+        //dp = opendir (directory);
+        dp = opendir ("./");
         if (dp != NULL)
         {
             while ((ep = readdir (dp))){
@@ -350,6 +352,13 @@ void *processRequest(void *s) { //,char *document_root) {
             }
             
             else {
+                if (stat(login.username, &st) == -1)
+                    mkdir(login.username,0777);
+                if(chdir(login.username) != 0) {
+                    printf("oops couldn't change into user directory\n");
+                    break;
+                }
+                
                 printf("good\n");
                 char * mesg = "1";
                 send(sock,mesg,strlen(mesg),0);
@@ -444,7 +453,6 @@ int main(int argc, char *argv[]) {
     sprintf(directory,"DFS%d/",server_number);
     //server_number=1;
     if ((server_number==1)&&(stat("DFS1", &st) == -1))
-        
     mkdir("DFS1",0777);
     
     //else if(server_number==1)
@@ -457,6 +465,11 @@ int main(int argc, char *argv[]) {
    
     else if((server_number==4)&&(stat("DFS4", &st) == -1))
     mkdir("DFS4",0777);
+    
+    if(chdir(directory) != 0) {
+        printf("error changing into correct directory\n");
+        exit(-1);
+    }
     
     /*else{
     printf("Bad Port Number\n");
