@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <pthread.h>
 #include <netdb.h>
+#include <openssl/md5.h>
 
 //#include "helper.h"
 
@@ -143,12 +144,84 @@ long GetFileSize(char* filename)
     return size;
 }
 
+int char2int(char d) {
+    if (d >= '0' && d <= '9') {
+        return d - '0';
+    }
+    //d = tolower(d);
+    if (d >= 'a' && d <= 'f') {
+        return (d - 'a') + 10;
+    }
+    return -1;
+}
 
+
+int calculateHash(char * filename) {
+    /*From here: http://stackoverflow.com/questions/10324611/how-to-calculate-the-md5-hash-of-a-large-file-in-c*/
+    unsigned char c[MD5_DIGEST_LENGTH]; //this is 32
+    int i;
+    FILE *inFile = fopen (filename, "rb");
+    MD5_CTX mdContext;
+    int bytes;
+    unsigned char data[1024];
+    char *ptr;
+    
+    int mod=0;
+    unsigned int decimal;
+    
+    if (inFile == NULL) {
+        printf ("%s can't be opened.\n", filename);
+        return 0;
+    }
+    
+    MD5_Init (&mdContext);
+    while ((bytes = fread (data, 1, 1024, inFile)) != 0)
+    MD5_Update (&mdContext, data, bytes);
+    MD5_Final (c,&mdContext);
+    char part[3];
+    for(i = 0; i < MD5_DIGEST_LENGTH; i++) {
+        printf("%02x ", c[i]);
+    }
+    sprintf(part,"%02x",c[0]);
+    int hash = strtol(part,&ptr,16);
+
+    printf("last part: %d\n",hash);
+    printf (" %s\n", filename);
+
+    fclose (inFile);
+    return hash%4;
+    //return 0;
+    
+}
+
+void sendPart(int sock, long bytes_to_read, FILE *fp) {
+    int remaining = bytes_to_read%1024;
+    fseek( fp, total, SEEK_SET );
+    while(bytes_to_read/1024 > 0){
+        bytesRead=fread( buf, sizeof(char), 1024, fp );
+        //total+=bytesRead;
+        bytes_to_read=bytes_to_read-bytesRead;
+        success = send(sockets[i%2], buf, bytesRead,0);
+        success = send(sockets[(i%2)+2], buf, bytesRead,0);
+        
+    }
+    if(remaining>0){
+        bytesRead=fread( buf, sizeof(char), remaining, fp );
+        //total+=bytesRead;
+        bytes_to_read=bytes_to_read-bytesRead;
+        success = send(sockets[i%2], buf, bytesRead,0);
+        success = send(sockets[(i%2)+2], buf, bytesRead,0);
+    }
+    
+
+}
 
 /* Sends the file to the client byte by byte */
 void sendBinary(int * sockets,char * filename){
     char buf[1024];
     FILE *fp;
+    
+    int hash = calculateHash(filename);
     
     long filesize = GetFileSize(filename);
     
@@ -164,6 +237,8 @@ void sendBinary(int * sockets,char * filename){
     int add_byte;
     long bytes_to_read;
     size_t bytesRead;
+    switch (hash)
+    case 0:
     for(int i=0;i<4;i++){
         if(extra>0){
             add_byte=1;
@@ -173,13 +248,30 @@ void sendBinary(int * sockets,char * filename){
             add_byte=0;
         bytes_to_read=part_size+add_byte;
         sprintf(contentHeader,"PUT %s %lu %d %lu\n",filename,bytes_to_read,i+1,total);
+        switch(i)
+        case 0:
+            send(sockets[0],contentHeader,strlen(contentHeader),0);
+            send(sockets[3],contentHeader,strlen(contentHeader),0);
+            sendPart(sockets[0],bytes_to_read,fp);
+            sendPart(sockets[3],bytes_to_read,fp);
+        case 1:
+            send(sockets[0],contentHeader,strlen(contentHeader),0);
+            send(sockets[1],contentHeader,strlen(contentHeader),0);
+        case 2:
+            send(sockets[1],contentHeader,strlen(contentHeader),0);
+            send(sockets[2],contentHeader,strlen(contentHeader),0);
+        case 3:
+            send(sockets[2],contentHeader,strlen(contentHeader),0);
+            send(sockets[3],contentHeader,strlen(contentHeader),0);
+        
         send(sockets[i%2],contentHeader,strlen(contentHeader),0);
         send(sockets[(i%2)+2],contentHeader,strlen(contentHeader),0);
         int remaining = bytes_to_read%1024;
         fseek( fp, total, SEEK_SET );
         while(bytes_to_read/1024 > 0){
             bytesRead=fread( buf, sizeof(char), 1024, fp );
-            total+=bytesRead;
+            //total+=bytesRead;
+            bytes_to_read=bytes_to_read-bytesRead;
             success = send(sockets[i%2], buf, bytesRead,0);
             success = send(sockets[(i%2)+2], buf, bytesRead,0);
             
@@ -192,14 +284,7 @@ void sendBinary(int * sockets,char * filename){
         }
         
     }
-    /*size_t bytesRead;
-    while (((bytesRead=fread( buf, sizeof(char), bytes_to_read, fp )) > 0) && total<part_size+1) {
-        total+=bytesRead;
-        success = send(sock, buf, bytesRead,0);
-    }*/
     
-    //sleep(1);
-    //printf("bytes read: %ld\n",total);
     fclose(fp);
 }
 
