@@ -15,6 +15,7 @@
 
 int numServers=4;
 int maxSocket;
+char password[64];
 
 //http://www.sparknotes.com/cs/searching/hashtables/section3/page/2/
 
@@ -239,16 +240,29 @@ void sendBinary(int * sockets,char * filename){
     
     FILE *fp;
     
-    int hash = calculateHash(filename);
     
-    long filesize = GetFileSize(filename);
+    
+    
+    
+    char secure_file[256];
+    sprintf(secure_file,".%s",filename);
+    char command[1024];
+    
+    sprintf(command,"openssl base64 -in %s -out %s -k %s",filename,secure_file,password);
+    
+    system(command);
+    
+    int hash = calculateHash(secure_file);
+    
+    long filesize = GetFileSize(secure_file);
     
     long part_size = filesize/4;
     
     long extra = filesize%4;
+
     
 
-    fp = fopen(filename,"rb"); //add error checking
+    fp = fopen(secure_file,"rb"); //add error checking
    
     int toSend[4][2];
     switch (hash) {
@@ -441,10 +455,13 @@ void processGetRequest(int * sockets, char * filename) {
     
     FD_ZERO(&sockSet);
     
+    char secure_file[256];
+    sprintf(secure_file,".%s",filename);
+    char command[1024];
     
     int parts[4];
     parts[0]=parts[1]=parts[2]=parts[3]=0;
-    FILE *fp = fopen(filename,"wb");
+    FILE *fp = fopen(secure_file,"wb");
     int j=0;
     int selRet = 0;
     int openSocket;
@@ -493,6 +510,11 @@ void processGetRequest(int * sockets, char * filename) {
     
     if(parts[0]!=1 || parts[1]!=1 || parts[2]!=1 || parts[3]!=1){
         printf("file incomplete\n");
+    }
+    else {
+        sprintf(command,"openssl base64 -d -out %s -in %s -k %s",filename,secure_file,password);
+        
+        system(command);
     }
     
 
@@ -841,6 +863,8 @@ int main(int argc, char *argv[]) {
     sprintf(contentHeader,"User %s %lu %d %lu\n","Alex",x,0,x);
     for(int i=0;i<numServers;i++)
         send(sockets[i],contentHeader,strlen(contentHeader),0);
+    
+    strcpy(password,"pwd");
     
     printf("we want to send the password\n");
     sprintf(contentHeader,"Password %s %lu %d %lu\n","pwd",x,0,x);
