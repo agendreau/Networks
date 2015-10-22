@@ -194,31 +194,58 @@ int calculateHash(char * filename) {
     
 }
 
-void sendPart(int sock, long bytes_to_read, FILE *fp) {
+long sendPart(int sock1, int sock2,long bytes_to_read, FILE *fp, long total) {
+    char buf[1024];
     int remaining = bytes_to_read%1024;
+    int success;
+    size_t bytesRead;
+    long total_read=0;
     fseek( fp, total, SEEK_SET );
     while(bytes_to_read/1024 > 0){
         bytesRead=fread( buf, sizeof(char), 1024, fp );
-        //total+=bytesRead;
+        total_read+=bytesRead;
         bytes_to_read=bytes_to_read-bytesRead;
-        success = send(sockets[i%2], buf, bytesRead,0);
-        success = send(sockets[(i%2)+2], buf, bytesRead,0);
+        success = send(sock1, buf, bytesRead,0);
+        success = send(sock2, buf, bytesRead,0);
         
     }
     if(remaining>0){
         bytesRead=fread( buf, sizeof(char), remaining, fp );
-        //total+=bytesRead;
+        total_read+=bytesRead;
         bytes_to_read=bytes_to_read-bytesRead;
-        success = send(sockets[i%2], buf, bytesRead,0);
-        success = send(sockets[(i%2)+2], buf, bytesRead,0);
+        success = send(sock1, buf, bytesRead,0);
+        success = send(sock2, buf, bytesRead,0);
     }
+    return total_read;
     
 
 }
 
+void sendHash(int * sockets, int toSend[4][2],FILE *fp,long part_size,long extra,char * filename) {
+    long bytes_to_read;
+    long add_byte=0;
+    char contentHeader[100];
+    long total=0;
+    for(int i=0;i<4;i++){
+        if(extra>0){
+            add_byte=1;
+            extra-=1;
+        }
+        else
+        add_byte=0;
+        bytes_to_read=part_size+add_byte;
+        sprintf(contentHeader,"PUT %s %lu %d %lu\n",filename,bytes_to_read,i+1,total);
+        
+        send(sockets[toSend[i][0]],contentHeader,strlen(contentHeader),0);
+        send(sockets[toSend[i][1]],contentHeader,strlen(contentHeader),0);
+        total = sendPart(sockets[toSend[i][0]],sockets[toSend[i][1]],bytes_to_read,fp,total);
+        
+    }
+}
+
 /* Sends the file to the client byte by byte */
 void sendBinary(int * sockets,char * filename){
-    char buf[1024];
+    
     FILE *fp;
     
     int hash = calculateHash(filename);
@@ -229,62 +256,56 @@ void sendBinary(int * sockets,char * filename){
     
     long extra = filesize%4;
     
-    char contentHeader[100];
 
-    long total = 0;
-    int success;
     fp = fopen(filename,"rb"); //add error checking
-    int add_byte;
-    long bytes_to_read;
-    size_t bytesRead;
-    switch (hash)
-    case 0:
-    for(int i=0;i<4;i++){
-        if(extra>0){
-            add_byte=1;
-            extra-=1;
-        }
-        else
-            add_byte=0;
-        bytes_to_read=part_size+add_byte;
-        sprintf(contentHeader,"PUT %s %lu %d %lu\n",filename,bytes_to_read,i+1,total);
-        switch(i)
+   
+    int toSend[4][2];
+    switch (hash) {
         case 0:
-            send(sockets[0],contentHeader,strlen(contentHeader),0);
-            send(sockets[3],contentHeader,strlen(contentHeader),0);
-            sendPart(sockets[0],bytes_to_read,fp);
-            sendPart(sockets[3],bytes_to_read,fp);
-        case 1:
-            send(sockets[0],contentHeader,strlen(contentHeader),0);
-            send(sockets[1],contentHeader,strlen(contentHeader),0);
-        case 2:
-            send(sockets[1],contentHeader,strlen(contentHeader),0);
-            send(sockets[2],contentHeader,strlen(contentHeader),0);
-        case 3:
-            send(sockets[2],contentHeader,strlen(contentHeader),0);
-            send(sockets[3],contentHeader,strlen(contentHeader),0);
+            toSend[0][0]=0;
+            toSend[0][1]=3;
+            toSend[1][0]=0;
+            toSend[1][1]=1;
+            toSend[2][0]=1;
+            toSend[2][1]=2;
+            toSend[3][0]=2;
+            toSend[3][1]=3;
+            sendHash(sockets,toSend,fp,part_size,extra,filename);
         
-        send(sockets[i%2],contentHeader,strlen(contentHeader),0);
-        send(sockets[(i%2)+2],contentHeader,strlen(contentHeader),0);
-        int remaining = bytes_to_read%1024;
-        fseek( fp, total, SEEK_SET );
-        while(bytes_to_read/1024 > 0){
-            bytesRead=fread( buf, sizeof(char), 1024, fp );
-            //total+=bytesRead;
-            bytes_to_read=bytes_to_read-bytesRead;
-            success = send(sockets[i%2], buf, bytesRead,0);
-            success = send(sockets[(i%2)+2], buf, bytesRead,0);
+        case 1:
+            toSend[0][0]=0;
+            toSend[0][1]=1;
+            toSend[1][0]=1;
+            toSend[1][1]=2;
+            toSend[2][0]=2;
+            toSend[2][1]=3;
+            toSend[3][0]=0;
+            toSend[3][1]=3;
+            sendHash(sockets,toSend,fp,part_size,extra,filename);
             
-        }
-        if(remaining>0){
-            bytesRead=fread( buf, sizeof(char), remaining, fp );
-            total+=bytesRead;
-            success = send(sockets[i%2], buf, bytesRead,0);
-            success = send(sockets[(i%2)+2], buf, bytesRead,0);
-        }
+        case 2:
+            toSend[0][0]=1;
+            toSend[0][1]=2;
+            toSend[1][0]=2;
+            toSend[1][1]=3;
+            toSend[2][0]=0;
+            toSend[2][1]=3;
+            toSend[3][0]=0;
+            toSend[3][1]=1;
+            sendHash(sockets,toSend,fp,part_size,extra,filename);
+            
+        case 3:
+            toSend[0][0]=2;
+            toSend[0][1]=3;
+            toSend[1][0]=0;
+            toSend[1][1]=3;
+            toSend[2][0]=0;
+            toSend[2][1]=1;
+            toSend[3][0]=1;
+            toSend[3][1]=2;
+            sendHash(sockets,toSend,fp,part_size,extra,filename);
         
     }
-    
     fclose(fp);
 }
 
