@@ -144,16 +144,7 @@ long GetFileSize(char* filename)
     return size;
 }
 
-int char2int(char d) {
-    if (d >= '0' && d <= '9') {
-        return d - '0';
-    }
-    //d = tolower(d);
-    if (d >= 'a' && d <= 'f') {
-        return (d - 'a') + 10;
-    }
-    return -1;
-}
+
 
 
 int calculateHash(char * filename) {
@@ -216,7 +207,7 @@ long sendPart(int sock1, int sock2,long bytes_to_read, FILE *fp, long total) {
         success = send(sock1, buf, bytesRead,0);
         success = send(sock2, buf, bytesRead,0);
     }
-    return total_read;
+    return total+total_read;
     
 
 }
@@ -271,6 +262,7 @@ void sendBinary(int * sockets,char * filename){
             toSend[3][0]=2;
             toSend[3][1]=3;
             sendHash(sockets,toSend,fp,part_size,extra,filename);
+            break;
         
         case 1:
             toSend[0][0]=0;
@@ -282,6 +274,7 @@ void sendBinary(int * sockets,char * filename){
             toSend[3][0]=0;
             toSend[3][1]=3;
             sendHash(sockets,toSend,fp,part_size,extra,filename);
+            break;
             
         case 2:
             toSend[0][0]=1;
@@ -293,6 +286,7 @@ void sendBinary(int * sockets,char * filename){
             toSend[3][0]=0;
             toSend[3][1]=1;
             sendHash(sockets,toSend,fp,part_size,extra,filename);
+            break;
             
         case 3:
             toSend[0][0]=2;
@@ -304,6 +298,7 @@ void sendBinary(int * sockets,char * filename){
             toSend[3][0]=1;
             toSend[3][1]=2;
             sendHash(sockets,toSend,fp,part_size,extra,filename);
+            break;
         
     }
     fclose(fp);
@@ -330,6 +325,7 @@ void receiveBinary(int sock,FILE * fp,char * filename, long filesize,
     while(filesize/1024 > 0){
         read_bytes = recv(sock, buf,1024,0);
         total_read_bytes+=read_bytes;
+        filesize=filesize-read_bytes;
         fwrite(buf,sizeof(char),read_bytes,fp);
         //printf("total read bytes: %lu\n",total_read_bytes);
         //printf("read bytes: %lu\n",read_bytes);

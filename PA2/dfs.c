@@ -156,6 +156,7 @@ void sendBinary(int sock,char * filename){
             int remaining = filesize%1024;
             while(filesize/1024 > 0){
                 bytesRead=fread( buf, sizeof(char), 1024, fp );
+                filesize = filesize - bytesRead;
                 success = send(sock, buf, bytesRead,0);
             }
             if(remaining>0){
@@ -195,6 +196,7 @@ void putRequest(int sock,char * filename, long filesize, int part, long offset){
             read_bytes = recv(sock, buf,1024,0);
             total_read_bytes+=read_bytes;
             fwrite(buf,sizeof(char),read_bytes,fp);
+            filesize = filesize - read_bytes;
             printf("total read bytes: %lu\n",total_read_bytes);
             printf("read bytes: %lu\n",read_bytes);
         }
