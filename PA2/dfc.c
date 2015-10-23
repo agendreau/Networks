@@ -767,6 +767,42 @@ int main(int argc, char *argv[]) {
     struct sockaddr_in serv_addr2;
     struct sockaddr_in serv_addr3;
     struct hostent *server;
+    int ports[4];
+    char server_port[64];
+    char username[256];
+    char password[256];
+    
+    FILE * config = fopen(args[1],"r");
+    
+    while(fgets(line,1024,config)!=NULL){
+        token=strtok(line,delim);
+        int i=0;
+        if(strccmp("Server",token)==0){
+            token=strtok(NULL,delim);
+            token=strtok(NULL,delim);
+            strcpy(server_port,token);
+            token=strtok(server_port,":");
+            server = gethostbyname(token);
+            token = strtok(NULL,"\n");
+            ports[i]=atoi(token);
+            i++;
+        }
+        else if(strcmp("Username:",token)==0){
+            strcpy(username,token);
+        }
+        
+        else if(strcmp("Password:",token)==0){
+            strcpy(password,token);
+            token=(password,"\n");
+            strcpy(password,token);
+        }
+        
+    }
+    
+
+    
+    
+    
     
     char contentHeader[100];
     long x = 0;
@@ -776,21 +812,21 @@ int main(int argc, char *argv[]) {
     
     //int numServers=2;
     
-    int ports[4];
+    
     
     int sockets[4];
     
-    if (argc < 3) {
+    /*if (argc < 3) {
         fprintf(stderr,"usage %s hostname port\n", argv[0]);
         exit(0);
-    }
+    }*/
     
     
     
-    ports[0] = atoi(argv[2]);
+    /*ports[0] = atoi(argv[2]);
     ports[1]= 10002;
     ports[2] = 10003;
-    ports[3] = 10004;
+    ports[3] = 10004;*/
     
     /* Create a socket point */
     //sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -804,7 +840,7 @@ int main(int argc, char *argv[]) {
         exit(1);
     }
     
-    server = gethostbyname(argv[1]);
+    
     
     if (server == NULL) {
         fprintf(stderr,"ERROR, no such host\n");
@@ -841,6 +877,7 @@ int main(int argc, char *argv[]) {
     /* Now connect to the server */
     if (connect(sockets[2], (struct sockaddr*)&(serv_addr2), sizeof(serv_addr2)) < 0) {
         printf("ERROR connecting to server %d\n",ports[2]);
+        sockets[2]=-1;
         //exit(1);
     }
     
@@ -860,14 +897,14 @@ int main(int argc, char *argv[]) {
      */
     
     //Now check passwords
-    sprintf(contentHeader,"User %s %lu %d %lu\n","Alex",x,0,x);
+    sprintf(contentHeader,"User %s %lu %d %lu\n",username,x,0,x);
     for(int i=0;i<numServers;i++)
         send(sockets[i],contentHeader,strlen(contentHeader),0);
     
     strcpy(password,"pwd");
     
     printf("we want to send the password\n");
-    sprintf(contentHeader,"Password %s %lu %d %lu\n","pwd",x,0,x);
+    sprintf(contentHeader,"Password %s %lu %d %lu\n",password,x,0,x);
     for(int j=0;j<numServers;j++){
         printf("Sending: %d\n",j);
         send(sockets[j],contentHeader,strlen(contentHeader),0);

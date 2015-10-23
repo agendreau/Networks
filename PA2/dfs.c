@@ -20,6 +20,8 @@ char directory[16];
 
 char toplevel[256];
 
+HashTable *info;
+
 
 /*void print_directories ()
 { //http://www.gnu.org/software/libc/manual/html_node/Simple-Directory-Lister.html
@@ -286,20 +288,21 @@ void *processRequest(void *s) { //,char *document_root) {
     char default_file[33];
     int i=0;
     long offset;
-    HashTable *info = createHashTable(100);
+    //HashTable *info = createHashTable(100);
     User login;
-    User u;
+    //User u;
     User u1;
     
     //int port=10000;
     
-    strcpy(u.username,"Alex");
+    /*strcpy(u.username,"Alex");
     strcpy(u.password,"password");
-    int check = insert(info,u);
+    int check = insert(info,u);*/
     
     strcpy(u1.username,"Alex");
     strcpy(u1.password,"pwd");
-    int check1 = insert(info,u1);
+    Node * testNode = find(info,u1);
+    printf("not null: %d\n", testNode!=NULL);
     
     
     //printf("check: %d\n",check);
@@ -469,7 +472,45 @@ int main(int argc, char *argv[]) {
   
     
     //int port=10001;
-    int port= atoi(argv[1]);
+    FILE * config;
+    config = fopen("dfs.conf","r");
+    char delim[2]=" ";
+    char line[1024];
+    char * token;
+    char username[256];
+    char password[256];
+    
+    info = createHashTable(100);
+
+    while(fgets(line,1024,config)!=NULL){
+        token=strtok(line,delim);
+        strcpy(username,token);
+        token=strtok(NULL,delim);
+        strcpy(password,token);
+        printf("username: %s\n",username);
+        
+        token=strtok(password,"\n");
+        printf("password: %s\n",password);
+        //strcpy(password,token);
+        User u;
+        strcpy(u.username,username);
+        strcpy(u.password,password);
+        printf("username: %s\n",u.username);
+        printf("password: %s\n",u.password);
+        int check = insert(info,u);
+        printf("check: %d\n",check);
+    }
+    
+    User u1;
+    
+    //strcpy(u1.username,"Alex");
+    //strcpy(u1.password,"pwd");
+    //insert(info,u1);
+    Node * testNode = find(info,u1);
+    printf("not null: %d\n", testNode!=NULL);
+    
+
+    int port= atoi(argv[2]);
     int server_number = port%4;
     if(server_number==0)
         server_number=4;
