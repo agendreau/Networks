@@ -4,11 +4,14 @@ Programming Assignment 2
 Files:
 dfc.c client
 dfs.c server
-Makefile
 dfc1.conf - for testing multiple connnections
 dfc.conf
 dfs.conf
 some example files
+
+To compile:
+dfs: gcc dfs.c -o dfs 
+dfc: gcc -lssl -lcrypto -o dfc dfc.c
 
 To use run make file
 ./dfc conf file with username and password in correct format and port info
