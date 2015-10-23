@@ -15,7 +15,7 @@
 
 int numServers=4;
 int maxSocket;
-char password[64];
+char password[256];
 
 //http://www.sparknotes.com/cs/searching/hashtables/section3/page/2/
 
@@ -770,31 +770,42 @@ int main(int argc, char *argv[]) {
     int ports[4];
     char server_port[64];
     char username[256];
-    char password[256];
+    //char password[256];
+    char * token;
+    char delim[2]=" ";
+    char line[1024];
     
-    FILE * config = fopen(args[1],"r");
-    
+    FILE * config = fopen(argv[1],"r");
+    int i=0;
     while(fgets(line,1024,config)!=NULL){
         token=strtok(line,delim);
-        int i=0;
-        if(strccmp("Server",token)==0){
+        
+        if(strcmp("Server",token)==0){
             token=strtok(NULL,delim);
             token=strtok(NULL,delim);
             strcpy(server_port,token);
+            printf("serverport: %s\n",server_port);
             token=strtok(server_port,":");
             server = gethostbyname(token);
             token = strtok(NULL,"\n");
+            printf("token: %s\n",token);
             ports[i]=atoi(token);
+            printf("token: %d\n",ports[i]);
             i++;
         }
         else if(strcmp("Username:",token)==0){
+            token=strtok(NULL,delim);
             strcpy(username,token);
+            token=strtok(username,"\n");
+            printf("username: %s\n",username);
         }
         
         else if(strcmp("Password:",token)==0){
+            token=strtok(NULL,delim);
             strcpy(password,token);
-            token=(password,"\n");
-            strcpy(password,token);
+            token=strtok(password,"\n");
+            printf("password: %s\n",password);
+            //strcpy(password,token);
         }
         
     }
@@ -804,11 +815,11 @@ int main(int argc, char *argv[]) {
     
     
     
-    char contentHeader[100];
+    char contentHeader[1024];
     long x = 0;
 
     
-    char buffer[256];
+    char buffer[1024];
     
     //int numServers=2;
     
@@ -901,7 +912,7 @@ int main(int argc, char *argv[]) {
     for(int i=0;i<numServers;i++)
         send(sockets[i],contentHeader,strlen(contentHeader),0);
     
-    strcpy(password,"pwd");
+    //strcpy(password,"pwd");
     
     printf("we want to send the password\n");
     sprintf(contentHeader,"Password %s %lu %d %lu\n",password,x,0,x);

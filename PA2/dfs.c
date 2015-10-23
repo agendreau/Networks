@@ -503,9 +503,10 @@ int main(int argc, char *argv[]) {
     
     User u1;
     
-    //strcpy(u1.username,"Alex");
-    //strcpy(u1.password,"pwd");
-    //insert(info,u1);
+    strcpy(u1.username,"Alex");
+    strcpy(u1.password,"pwd");
+    //int check = insert(info,u1);
+    //printf("check: %d\n",check);
     Node * testNode = find(info,u1);
     printf("not null: %d\n", testNode!=NULL);
     
