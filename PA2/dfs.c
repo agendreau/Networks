@@ -152,7 +152,7 @@ void sendBinary(int sock,char * filename,char * directory){
             printf("filesize: %lu\n",filesize);
             printf("offset: %lu\n",offset);
             
-            sprintf(contentHeader,"Part %s %ld %d %ld\n",filename,filesize,i,offset);
+            sprintf(contentHeader,"Part %s %s %ld %d %ld\n",filename,directory,filesize,i,offset);
             
             send(sock,contentHeader,strlen(contentHeader),0);
             int remaining = filesize%1024;
@@ -284,7 +284,11 @@ void *processRequest(void *s) { //,char *document_root) {
     char content[100];
     char http_version[9];
     
+    char request_dir[1024];
+    
     char directory[1024];
+    
+    char sub_dir[1024];
     
     int num = 0;
     char *token;
@@ -326,6 +330,8 @@ void *processRequest(void *s) { //,char *document_root) {
     strcpy(request,token);
     token = strtok(NULL,delim);
     strcpy(filename,token);
+    token = strtok(NULL,delim);
+    strcpy(request_dir,token);
     token= strtok(NULL,delim);
     filesize = atol(token);
     token=strtok(NULL,delim);
@@ -333,20 +339,53 @@ void *processRequest(void *s) { //,char *document_root) {
     token = strtok(NULL,delim);
     offset = atol(token);
         
+        char new_dir[1024];
+        
     
         printf("request: %s\n",request);
     
         if(strcmp(request,"GET")==0) {
             printf("get request\n");
-            getRequest(sock,filename,directory);
+            if(strcmp(request_dir,"/")==0)
+                getRequest(sock,filename,directory);
+            else {
+                sprintf(new_dir,"%s%s",directory,request_dir);
+                getRequest(sock,filename,new_dir);
+            }
+           
             
         }
     
-    else if(strcmp(request,"PUT")==0)
-    putRequest(sock,filename,filesize,part,offset,directory);
+        else if(strcmp(request,"PUT")==0) {
+            printf("put request\n");
+            if(strcmp(request_dir,"/")==0)
+            putRequest(sock,filename,filesize,part,offset,directory);
+            else {
+                sprintf(new_dir,"%s%s",directory,request_dir);
+                printf("new dir: %s\n",new_dir);
+                putRequest(sock,filename,filesize,part,offset,new_dir);
+            }
+            
+            
+        }
+        
     
-    else if(strcmp(request,"LIST")==0)
-    listRequest(sock,directory);
+    
+        else if(strcmp(request,"LIST")==0) {
+            if(strcmp(filename,"/")==0)
+                listRequest(sock,directory);
+            else {
+                sprintf(new_dir,"%s%s",directory,filename);
+                listRequest(sock,new_dir);
+            }
+        }
+        
+        
+        else if(strcmp(request,"MKDIR")==0){
+            sprintf(new_dir,"%s%s",directory,filename);
+            if(stat(new_dir,&st)==-1)
+                mkdir(new_dir,0777);
+        }
         
         else if(strcmp(request,"CLOSE")==0){
             break;

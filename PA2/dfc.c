@@ -213,7 +213,8 @@ long sendPart(int sock1, int sock2,long bytes_to_read, FILE *fp, long total) {
 
 }
 
-void sendHash(int * sockets, int toSend[4][2],FILE *fp,long part_size,long extra,char * filename) {
+void sendHash(int * sockets, int toSend[4][2],FILE *fp,long part_size,
+              long extra,char * filename, char * directory) {
     long bytes_to_read;
     long add_byte=0;
     char contentHeader[100];
@@ -226,7 +227,7 @@ void sendHash(int * sockets, int toSend[4][2],FILE *fp,long part_size,long extra
         else
         add_byte=0;
         bytes_to_read=part_size+add_byte;
-        sprintf(contentHeader,"PUT %s %lu %d %lu\n",filename,bytes_to_read,i+1,total);
+        sprintf(contentHeader,"PUT %s %s %lu %d %lu\n",filename,directory,bytes_to_read,i+1,total);
         
         send(sockets[toSend[i][0]],contentHeader,strlen(contentHeader),0);
         send(sockets[toSend[i][1]],contentHeader,strlen(contentHeader),0);
@@ -236,25 +237,33 @@ void sendHash(int * sockets, int toSend[4][2],FILE *fp,long part_size,long extra
 }
 
 /* Sends the file to the client byte by byte */
-void sendBinary(int * sockets,char * filename){
+void sendBinary(int * sockets,char * filename, char * directory){
     
     FILE *fp;
     
     
     
     
-    
+    char dir[1024];
+    char dir1[2014];
     char secure_file[256];
-    sprintf(secure_file,".%s",filename);
+    if(strcmp("/",directory)==0){
+        sprintf(dir,"%s.%s","",filename);
+        sprintf(dir1,"%s%s","",filename);
+    }
+    else {
+    sprintf(dir,"%s.%s",directory,filename);
+    sprintf(dir1,"%s%s",directory,filename);
+    }
     char command[1024];
     
-    sprintf(command,"openssl base64 -in %s -out %s -k %s",filename,secure_file,password);
+    sprintf(command,"openssl base64 -in %s -out %s -k %s",dir1,dir,password);
     
     system(command);
     
-    int hash = calculateHash(secure_file);
+    int hash = calculateHash(dir);
     
-    long filesize = GetFileSize(secure_file);
+    long filesize = GetFileSize(dir);
     
     long part_size = filesize/4;
     
@@ -262,7 +271,7 @@ void sendBinary(int * sockets,char * filename){
 
     
 
-    fp = fopen(secure_file,"rb"); //add error checking
+    fp = fopen(dir,"rb"); //add error checking
    
     int toSend[4][2];
     switch (hash) {
@@ -275,7 +284,7 @@ void sendBinary(int * sockets,char * filename){
             toSend[2][1]=2;
             toSend[3][0]=2;
             toSend[3][1]=3;
-            sendHash(sockets,toSend,fp,part_size,extra,filename);
+            sendHash(sockets,toSend,fp,part_size,extra,filename,directory);
             break;
         
         case 1:
@@ -287,7 +296,7 @@ void sendBinary(int * sockets,char * filename){
             toSend[2][1]=3;
             toSend[3][0]=0;
             toSend[3][1]=3;
-            sendHash(sockets,toSend,fp,part_size,extra,filename);
+            sendHash(sockets,toSend,fp,part_size,extra,filename,directory);
             break;
             
         case 2:
@@ -299,7 +308,7 @@ void sendBinary(int * sockets,char * filename){
             toSend[2][1]=3;
             toSend[3][0]=0;
             toSend[3][1]=1;
-            sendHash(sockets,toSend,fp,part_size,extra,filename);
+            sendHash(sockets,toSend,fp,part_size,extra,filename,directory);
             break;
             
         case 3:
@@ -311,18 +320,18 @@ void sendBinary(int * sockets,char * filename){
             toSend[2][1]=1;
             toSend[3][0]=1;
             toSend[3][1]=2;
-            sendHash(sockets,toSend,fp,part_size,extra,filename);
+            sendHash(sockets,toSend,fp,part_size,extra,filename,directory);
             break;
         
     }
     fclose(fp);
 }
 
-void sendFile(int * sockets,char * filename){
-    sendBinary(sockets,filename);
+void sendFile(int * sockets,char * filename,char * directory){
+    sendBinary(sockets,filename,directory);
 }
 
-void receiveBinary(int sock,FILE * fp,char * filename, long filesize,
+void receiveBinary(int sock,FILE * fp, long filesize,
                    int part, int parts[],long offset){
     char buf[1024];
     char file[256];
@@ -443,25 +452,37 @@ int processPart(int sock,int parts[], FILE *fp){
     printf("offset:%lu\n",offset);
     
     if(strcmp(request,"Part")==0)
-        receiveBinary(sock,fp,filename,filesize,part,parts,offset);
+        receiveBinary(sock,fp,filesize,part,parts,offset);
     
     return 0;
 
 }
 
-void processGetRequest(int * sockets, char * filename) {
+void processGetRequest(int * sockets, char * filename, char * directory) {
     struct timeval tv;
     fd_set sockSet;
     
     FD_ZERO(&sockSet);
     
     char secure_file[256];
-    sprintf(secure_file,".%s",filename);
+    //sprintf(secure_file,".%s",filename);
     char command[1024];
     
     int parts[4];
     parts[0]=parts[1]=parts[2]=parts[3]=0;
-    FILE *fp = fopen(secure_file,"wb");
+    char dir[1024];
+    char dir1[1024];
+    if(strcmp("/",directory)==0){
+        sprintf(dir,"%s.%s","",filename);
+        sprintf(dir1,"%s%s","",filename);
+    }
+    else {
+        sprintf(dir,"%s.%s",directory,filename);
+        sprintf(dir1,"%s%s",directory,filename);
+    }
+    
+    
+    FILE *fp = fopen(dir,"wb");
     int j=0;
     int selRet = 0;
     int openSocket;
@@ -512,7 +533,7 @@ void processGetRequest(int * sockets, char * filename) {
         printf("file incomplete\n");
     }
     else {
-        sprintf(command,"openssl base64 -d -out %s -in %s -k %s",filename,secure_file,password);
+        sprintf(command,"openssl base64 -d -out %s -in %s -k %s",dir1,dir,password);
         
         system(command);
     }
@@ -537,7 +558,25 @@ int processListServer(int sock,HashFileTable *ht){
     
     if(strcmp(firstLine,"\n")==0)
         return -1;
-    
+    char* pPosition = strchr(firstLine, '.');
+    if(pPosition==NULL){
+        File_ f;
+        strtok(firstLine,"\n");
+        sprintf(filename,"%s/",firstLine);
+        strcpy(f.filename,filename);
+        FileList * node = find(ht,f);
+        if(node==NULL){
+            printf("new node: %s\n",f.filename);
+            f.part[0]=1;
+            f.part[1]=1;
+            f.part[2]=1;
+            f.part[3]=1;
+            insert(ht,f);
+        }
+        return 0;
+        
+        
+    }
     token = strtok(firstLine,delim);
     //token = strtok(NULL,delim);
     strcpy(prefix,token);
@@ -670,6 +709,8 @@ int communicate(int * sockets){
     char delim[2] = " ";
     char *token;
     //int numServers=2;
+    char directory[256];
+    char file_dir[1024];
     
     char contentHeader[100];
     long x = 0;
@@ -694,43 +735,9 @@ int communicate(int * sockets){
         
         token=strtok(buffer,delim);
         strcpy(request,token);
-        token=strtok(NULL,delim);
-        if(token!=NULL)
-            strcpy(filename,token);
         
-        if(strcmp("GET",request)==0) {
-            strtok(filename,"\n");
-            printf("filename: %s\n",filename);
-            sprintf(contentHeader,"GET %s %lu %d %lu\n",filename,x,0,x);
-            int success;
-            for(int i=0;i<numServers;i++) {
-                success=send(sockets[i],contentHeader,strlen(contentHeader),0);
-                printf("success: %d\n",success);
-                if(success==-1) {
-                    sockets[i]=-1;
-                }
-            }
-            processGetRequest(sockets,filename);
-        }
-        
-        else if(strcmp("LIST",request)==0){
-            printf("process list request\n");
-
-            sprintf(contentHeader,"LIST %s %lu %d %lu\n","test.txt",x,0,x);
-            for(int i=0;i<numServers;i++)
-                send(sockets[i],contentHeader,strlen(contentHeader),0);
-            processListRequest(sockets);
-            //printf("to be implemented\n");
-        }
-        
-        
-        else if(strcmp("PUT",request)==0){
-            strtok(filename,"\n");
-            sendFile(sockets,filename);
-        }
-        
-        else if(strcmp("CLOSE",request)==0){
-            sprintf(contentHeader,"CLOSE %s %lu %d %lu\n","test.txt",x,0,x);
+        if(strcmp("CLOSE\n",request)==0){
+            sprintf(contentHeader,"CLOSE %s %s %lu %d %lu\n","test.txt","dumb",x,0,x);
             for(int i=0;i<numServers;i++){
                 send(sockets[i],contentHeader,strlen(contentHeader),0);
                 close(sockets[i]);
@@ -740,9 +747,74 @@ int communicate(int * sockets){
             
         }
         
+        
+        else if(strcmp("GET",request)==0) {
+            token=strtok(NULL,delim);
+            strcpy(filename,token);
+            
+            
+            token=strtok(NULL,delim);
+            
+                strcpy(directory,token);
+                strtok(directory,"\n");
+            
+           
+            
+            
+            sprintf(contentHeader,"GET %s %s %lu %d %lu\n",filename,directory,x,0,x);
+            int success;
+            for(int i=0;i<numServers;i++) {
+                success=send(sockets[i],contentHeader,strlen(contentHeader),0);
+                printf("success: %d\n",success);
+                if(success==-1) {
+                    sockets[i]=-1;
+                }
+            }
+            processGetRequest(sockets,filename,directory);
+        }
+        
+        else if(strcmp("LIST",request)==0){
+            printf("process list request\n");
+            token = strtok(NULL,delim);
+            strcpy(filename,token);
+            strtok(filename,"\n");
+            printf("filename: %s\n",filename);
+            sprintf(contentHeader,"LIST %s %s %lu %d %lu\n",filename,"dumb",x,0,x);
+            for(int i=0;i<numServers;i++)
+                send(sockets[i],contentHeader,strlen(contentHeader),0);
+            processListRequest(sockets);
+            //printf("to be implemented\n");
+        }
+        
+        
+        else if(strcmp("PUT",request)==0){
+            token=strtok(NULL,delim);
+            strcpy(filename,token);
+            
+            printf("filename: %s\n",filename);
+            token=strtok(NULL,delim);
+            
+           
+                strcpy(directory,token);
+                strtok(directory,"\n");
+            
+            
+            //sprintf(file_dir,"%s%s",directory,filename);
+            sendFile(sockets,filename,directory);
+        }
+        
+        else if(strcmp("MKDIR",request)==0){
+            strtok(filename,"\n");
+            sprintf(contentHeader,"MKDIR %s %s %lu %d %lu\n",filename,"dumb",x,0,x);
+            for(int i=0;i<numServers;i++)
+                send(sockets[i],contentHeader,strlen(contentHeader),0);
+        }
+        
+        
+        
         else {
             printf("bad command: shutting down\n");
-            printf(contentHeader,"CLOSE %s %lu %d %lu\n","test.txt",x,0,x);
+            printf(contentHeader,"CLOSE %s %s %lu %d %lu\n","test.txt","dumb",x,0,x);
             for(int i=0;i<numServers;i++){
                 send(sockets[i],contentHeader,strlen(contentHeader),0);
                 close(sockets[i]);
@@ -908,14 +980,14 @@ int main(int argc, char *argv[]) {
      */
     
     //Now check passwords
-    sprintf(contentHeader,"User %s %lu %d %lu\n",username,x,0,x);
+    sprintf(contentHeader,"User %s %s %lu %d %lu\n",username,"dumb",x,0,x);
     for(int i=0;i<numServers;i++)
         send(sockets[i],contentHeader,strlen(contentHeader),0);
     
     //strcpy(password,"pwd");
     
     printf("we want to send the password\n");
-    sprintf(contentHeader,"Password %s %lu %d %lu\n",password,x,0,x);
+    sprintf(contentHeader,"Password %s %s %lu %d %lu\n",password,"dumb",x,0,x);
     for(int j=0;j<numServers;j++){
         printf("Sending: %d\n",j);
         send(sockets[j],contentHeader,strlen(contentHeader),0);
