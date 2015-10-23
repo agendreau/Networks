@@ -11,7 +11,7 @@
 #include <netdb.h>
 #include <openssl/md5.h>
 
-//#include "helper.h"
+
 
 int numServers=4;
 int maxSocket;
@@ -668,6 +668,8 @@ void processListRequest(int * sockets) {
     int i;
     FileList *node, *temp;
     
+    printf("LIST of Files\n");
+    
     if (list!=NULL) {
     
     /* Free the memory for every item in the table, including the
@@ -804,6 +806,8 @@ int communicate(int * sockets){
         }
         
         else if(strcmp("MKDIR",request)==0){
+            token=strtok(NULL,delim);
+            strcpy(filename,token);
             strtok(filename,"\n");
             sprintf(contentHeader,"MKDIR %s %s %lu %d %lu\n",filename,"dumb",x,0,x);
             for(int i=0;i<numServers;i++)
