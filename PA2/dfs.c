@@ -16,7 +16,7 @@
 
 struct stat st = {0};
 
-char directory[16];
+
 
 char toplevel[256];
 
@@ -128,7 +128,7 @@ void readRequest(char firstLine[],int sock) {
 }
 
 /* Sends the file to the client byte by byte */
-void sendBinary(int sock,char * filename){
+void sendBinary(int sock,char * filename,char * directory){
     char buf[1024];
     char file[256];
     char contentHeader[100];
@@ -141,7 +141,7 @@ void sendBinary(int sock,char * filename){
     int success;
     
     for(int i=4;i>0;i--){
-        sprintf(file,".%s.%d",filename,i);
+        sprintf(file,"%s.%s.%d",directory,filename,i);
         if( access( file, F_OK ) != -1 ) {
             //long filesize = GetFileSize(file);
             fp = fopen(file,"rb");
@@ -173,15 +173,15 @@ void sendBinary(int sock,char * filename){
     
 }
 
-void getRequest(int sock,char * filename) {
-    sendBinary(sock,filename);
+void getRequest(int sock,char * filename,char * directory) {
+    sendBinary(sock,filename,directory);
     }
 
-void putRequest(int sock,char * filename, long filesize, int part, long offset){
+void putRequest(int sock,char * filename, long filesize, int part, long offset,char * directory){
     char buf[1024];
-    char file[256];
+    char file[1024];
     //sprintf(file,"%s.%s.%d",directory,filename,part);
-    sprintf(file,".%s.%d",filename,part);
+    sprintf(file,"%s.%s.%d",directory,filename,part);
     printf("%s\n",file);
     FILE *fp = fopen(file,"wb");
     ssize_t total_read_bytes=0;
@@ -215,16 +215,17 @@ void putRequest(int sock,char * filename, long filesize, int part, long offset){
 
     fclose(fp);
 }
-void listRequest(int sock) {
+void listRequest(int sock,char * directory) {
     
         DIR *dp;
         struct dirent *ep;
     
         int success;
         char filename[257];
-    
-        //dp = opendir (directory);
-        dp = opendir ("./");
+        char request_dir[1024];
+        sprintf(request_dir,"./%s",directory);
+        //dp = opendir ("./");
+        dp = opendir (request_dir);
         if (dp != NULL)
         {
             while ((ep = readdir (dp))){
@@ -283,6 +284,8 @@ void *processRequest(void *s) { //,char *document_root) {
     char content[100];
     char http_version[9];
     
+    char directory[1024];
+    
     int num = 0;
     char *token;
     char default_file[33];
@@ -335,15 +338,15 @@ void *processRequest(void *s) { //,char *document_root) {
     
         if(strcmp(request,"GET")==0) {
             printf("get request\n");
-            getRequest(sock,filename);
+            getRequest(sock,filename,directory);
             
         }
     
     else if(strcmp(request,"PUT")==0)
-    putRequest(sock,filename,filesize,part,offset);
+    putRequest(sock,filename,filesize,part,offset,directory);
     
     else if(strcmp(request,"LIST")==0)
-    listRequest(sock);
+    listRequest(sock,directory);
         
         else if(strcmp(request,"CLOSE")==0){
             break;
@@ -368,23 +371,24 @@ void *processRequest(void *s) { //,char *document_root) {
             }
             
             else {
-                if (stat(login.username, &st) == -1)
-                    mkdir(login.username,0777);
+                //if (stat(login.username, &st) == -1)
+                    //mkdir(login.username,0777);
                 char user_directory[256];
                 sprintf(user_directory,"%d%s",(node->u).usernumber,login.username);
-                if(chdir(login.username) != 0) {
+                /*if(chdir(login.username) != 0) {
                     printf("oops couldn't change into user directory\n");
                     break;
-                }
+                }*/
                 if(stat(user_directory,&st)==-1)
                     mkdir(user_directory,0777);
-                if(chdir(user_directory) != 0) {
+                /*if(chdir(user_directory) != 0) {
                     printf("oops couldn't change into specfic user directory\n");
                     break;
-                }
+                }*/
                 printf("good\n");
                 char * mesg = "1";
                 send(sock,mesg,strlen(mesg),0);
+                sprintf(directory,"%s/",user_directory);
             }
           
         }
@@ -405,8 +409,8 @@ void *processRequest(void *s) { //,char *document_root) {
     }
     printf("we want to close the socket\n");
     close(sock);
-    if(chdir(toplevel)!=0)
-    printf("error in resetting\n");
+    /*if(chdir(toplevel)!=0)
+    printf("error in resetting\n");*/
     
     return NULL;
 }
@@ -510,7 +514,7 @@ int main(int argc, char *argv[]) {
     Node * testNode = find(info,u1);
     printf("not null: %d\n", testNode!=NULL);
     
-
+    char directory[16];
     int port= atoi(argv[2]);
     int server_number = port%4;
     if(server_number==0)
