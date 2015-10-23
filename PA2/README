@@ -1,0 +1,37 @@
+Alex Gendreau
+Programming Assignment 2
+
+Files:
+dfc.c client
+dfs.c server
+Makefile
+dfc1.conf - for testing multiple connnections
+dfc.conf
+dfs.conf
+some example files
+
+To use run make file
+./dfc conf file with username and password in correct format and port info
+./dfs DFS1/ PORTNO - run with the correct port numbers matching client conf
+
+
+NOTE:
+For the commands if you want the command to be executed on the server 
+side in the top level directory you must accompany the command with 
+the '/' character.  (i.e. list all files in top level directory, LIST /).
+
+I have almsot no error handling.  Many crashes may happen if the command 
+enter is bad.  Some examples which cause crashes (invalid commands, 
+trying to put a file in a directory that doesn't exist on either the 
+client or server side (the directories must already exist on the server 
+and client side),invalid arguments in the commands)
+
+I also could have taken some of the methods that are common across both the
+server and the client and put them in a shared file instead of copy 
+pasting similar code.
+
+I make a new directory for each individual user by appending the 
+usernumber to the unique user/password id.  This prevents users with 
+the same username from accessing eachother's files.
+
+

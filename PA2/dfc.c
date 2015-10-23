@@ -18,6 +18,8 @@ int maxSocket;
 char password[256];
 
 //http://www.sparknotes.com/cs/searching/hashtables/section3/page/2/
+/* Hash table for storing the parts of the files that are returned*/
+/* used the above link as a guide*/
 
 typedef struct {
     char filename[256];
@@ -126,7 +128,7 @@ void free_table(HashFileTable *ht)
 
 
 
-//void run_client(int ports[])
+
 
 /* returns the number of bytes in a file*/
 long GetFileSize(char* filename)
@@ -146,7 +148,8 @@ long GetFileSize(char* filename)
 }
 
 
-
+/* Calculate MD5 hash, used the stackover flow link as a guide */
+/* used the first byte to calculate hash (I assumed this was the least significant byte) */
 
 int calculateHash(char * filename) {
     /*From here: http://stackoverflow.com/questions/10324611/how-to-calculate-the-md5-hash-of-a-large-file-in-c*/
@@ -186,6 +189,7 @@ int calculateHash(char * filename) {
     
 }
 
+/* Send part to correct servers*/
 long sendPart(int sock1, int sock2,long bytes_to_read, FILE *fp, long total) {
     char buf[1024];
     int remaining = bytes_to_read%1024;
@@ -213,6 +217,7 @@ long sendPart(int sock1, int sock2,long bytes_to_read, FILE *fp, long total) {
 
 }
 
+/* send the header parts to the servers */
 void sendHash(int * sockets, int toSend[4][2],FILE *fp,long part_size,
               long extra,char * filename, char * directory) {
     long bytes_to_read;
@@ -236,7 +241,7 @@ void sendHash(int * sockets, int toSend[4][2],FILE *fp,long part_size,
     }
 }
 
-/* Sends the file to the client byte by byte */
+/* Sends the file to the servers byte by byte */
 void sendBinary(int * sockets,char * filename, char * directory){
     
     FILE *fp;
@@ -327,10 +332,12 @@ void sendBinary(int * sockets,char * filename, char * directory){
     fclose(fp);
 }
 
+/* sends file to server in parts*/
 void sendFile(int * sockets,char * filename,char * directory){
     sendBinary(sockets,filename,directory);
 }
 
+/* receive file from servers in parts, keep track of which parts received */
 void receiveBinary(int sock,FILE * fp, long filesize,
                    int part, int parts[],long offset){
     char buf[1024];
@@ -418,6 +425,7 @@ void readList(char firstLine[], int sock) {
     //printf("%s",firstLine);
 }
 
+/* process each part of the file returned by the server and check if all parts are present*/
 int processPart(int sock,int parts[], FILE *fp){
     
     char firstLine[1024];
@@ -458,6 +466,7 @@ int processPart(int sock,int parts[], FILE *fp){
 
 }
 
+/* process get request and make sure each part exists*/
 void processGetRequest(int * sockets, char * filename, char * directory) {
     struct timeval tv;
     fd_set sockSet;
@@ -541,6 +550,7 @@ void processGetRequest(int * sockets, char * filename, char * directory) {
 
 }
 
+/*process each part of list request*/
 int processListServer(int sock,HashFileTable *ht){
     char firstLine[1024];
     char request[8];
@@ -606,6 +616,7 @@ int processListServer(int sock,HashFileTable *ht){
     
 }
 
+/* process the entire list request*/
 void processListRequest(int * sockets) {
     struct timeval tv;
     fd_set sockSet;
@@ -700,7 +711,7 @@ void processListRequest(int * sockets) {
 
            
            
-
+//Interaction with user
 int communicate(int * sockets){
     char firstLine[1024];
     char request[8];
@@ -834,7 +845,7 @@ int communicate(int * sockets){
 
 
 
-
+//Sets everything up including initial user/password handshake
 
 int main(int argc, char *argv[]) {
     int sockfd, portno,portno2,portno3,portno4,n;
