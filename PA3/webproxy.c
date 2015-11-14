@@ -19,7 +19,7 @@ void readLine(char firstLine[], int sock) {
     char c;
     int len;
     len = recv(sock, &c, 1, 0);
-    //printf("%c\n",c);
+    printf("read something: %d\n",len);
     while (len == 1 && c != '\n') {
         firstLine[i] = c;;
         i++;
@@ -49,17 +49,18 @@ void readRequestProxy(char firstLine[], char content_type[], char content_length
      return 0;
      }*/
     strcpy(firstLine,buf);
-    //printf("the buffer is: %s\n",buf);
+    printf("the buffer is: %s\n",buf);
     while(strlen(buf)>2) {
         char *token;
         strcpy(copy_buffer,buf);
+        printf("the bufer is %s\n",buf);
         token = strtok(copy_buffer, delim);
         //printf("token: %s\n",token);
         if(strcmp(token,"Content-Type:")==0){
             strcpy(content_type,buf);
         }
         else if(strcmp(token,"Content-Length:")==0){
-            strcpy(content_length,buf);
+            strcpy(content_length,strtok(NULL,delim));
         }
         else if(strcmp(token,"Connection:")==0){
             strcpy(connection,buf);
@@ -80,24 +81,50 @@ void readRequestProxy(char firstLine[], char content_type[], char content_length
 }
 
 void communicate(int client_sock,int proxy_sock,char * request){
+    printf("request\n");
     printf(request);
-    strcpy(request,"GET http://www.google.com HTTP/1.0\r\n\r\n");
-    char * request1 ="GET http://www.google.com HTTP/1.0\r\n\r\n\r\n";
-    printf(request1);
-    send(proxy_sock,request1,strlen(request1),0);
+    //strcpy(request,"GET http://www.ascentrobotics.com/ HTTP/1.0\r\n\r\n");
+    //char * request1 ="GET http://www.colorado.edu HTTP/1.0\r\n\r\n\r\n";
+    //printf(request1);
+    int j = send(proxy_sock,request,strlen(request),0);
+    printf("request sent: %d\n",j);
     char firstLine[1024];
     char content_type[1024];
     char content_length[256];
+    char content_length1[256];
     char connection[1024];
+    char buf[1024];
+    //sleep(5);
     readRequestProxy(firstLine,content_type,content_length,proxy_sock,connection);
     char * buffer;
+    char * junk = "what is being sent\n";
+    int c = atoi(content_length);
     buffer = malloc(sizeof(char)*atoi(content_length));
-    recv(proxy_sock,buffer,strlen(buffer),0);
+    printf("content length: %d\n",c);
+    int i=0;
+    sprintf(content_length1,"Content-Length: %s\r\n\r\n",content_length);
+    printf(content_length1);
     send(client_sock,firstLine,strlen(firstLine),0);
     send(client_sock,content_type,strlen(content_type),0);
-    send(client_sock,content_length,strlen(content_length),0);
-    send(client_sock,connection,strlen(connection),0);
-    send(client_sock,buffer,strlen(buffer),0);
+    send(client_sock,content_length1,strlen(content_length1),0);
+    
+    while ((i = recv(proxy_sock, buf, sizeof(buf),0))!= (size_t)NULL)//send file
+    {
+        //strcat(buffer,buf);
+        send(client_sock,buf,strlen(buf),0);
+    }
+    //int i = recv(proxy_sock,buffer,c,0);
+    //printf("recv: %d\n",i);
+                 
+            
+    /*sprintf(content_length1,"Content-Length: %s\r\n\r\n",content_length);
+    printf(content_length1);
+    send(client_sock,firstLine,strlen(firstLine),0);
+    send(client_sock,content_type,strlen(content_type),0);
+    send(client_sock,content_length1,strlen(content_length1),0);
+    //send(client_sock,connection,strlen(connection),0);
+    send(client_sock,buffer,c,0);*/
+    //send(client_sock,junk,strlen(junk),0);
     free(buffer);
     
     
@@ -107,23 +134,24 @@ void communicate(int client_sock,int proxy_sock,char * request){
 
 void sendAndReceiverActual(int client_sock,char * host,char * request){
     int proxyClient;
-    struct sockaddr_in serv_addr;
-    struct hostent *server;
-    proxyClient = socket(AF_INET, SOCK_STREAM, 0);
+    struct addrinfo hints, *res;
     
-    int port = 80;
-    printf("here\n");
-    //server = gethostbyname(host);
-    server = gethostbyname("www.google.com");
-    printf(server);
+    memset(&hints, 0, sizeof hints);
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
     
-    bzero((char *) &(serv_addr), sizeof(serv_addr));
-    (serv_addr).sin_family = AF_INET;
-    bcopy((char *)server->h_addr, (char *)&(serv_addr).sin_addr.s_addr, server->h_length);
-    (serv_addr).sin_port = htons(port);
+    char * port = "80";
+    host[strlen(host)-2]='\0'; //get rid of the \r\n
+    printf("actual host: %s\n",host);
+    getaddrinfo(host, port, &hints, &res);
+    printf("here");
+   
+    proxyClient = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+    
+ 
     
     /* Now connect to the server */
-    if (connect(proxyClient, (struct sockaddr*)&(serv_addr), sizeof(serv_addr)) < 0) {
+    if (connect(proxyClient, res->ai_addr, res->ai_addrlen) < 0) {
         printf("ERROR connecting to server %d\n",port);
         //exit(1);
     }
@@ -160,9 +188,12 @@ void readRequest(char firstLine[], char host[], char connection[],int sock,char 
         strcpy(copy_buffer,buf);
         
         token = strtok(copy_buffer, delim);
-        //printf("token: %s\n",token);
-        if(strcmp(token,"host:")==0 || strcmp(token,"HOST:")==0){
-            strcpy(host,buf);
+        printf("token: %s\n",token);
+        if(strcmp(token,"host:")==0 || strcmp(token,"HOST:")==0 || strcmp(token,"Host:")==0){
+        
+            token = strtok(NULL,delim);
+            strcpy(host,token);
+            printf("host: %s",host);
         }
     
         else if(strcmp(token,"Connection:")==0){
@@ -178,8 +209,8 @@ void readRequest(char firstLine[], char host[], char connection[],int sock,char 
         //printf("the new buffer is: %s\n",buf);
         
     }
-    strcpy(host,"www.google.com\r\n");
-    strcat(request,host);
+    /*strcpy(host,"www.colorado.edu\r\n");*/
+    //strcat(request,host);
     strcat(request,"\r\n");
     //return 1;
     //return keep_going;
@@ -221,7 +252,7 @@ void *processRequest(void *s) { //,char *document_root) {
     int i=0;
     
     readRequest(firstLine,host,connection,sock,request);
-    
+    printf("host: %s\n",host);
     //check for errors
     
             
@@ -232,7 +263,7 @@ void *processRequest(void *s) { //,char *document_root) {
     /* Am I an GET method? */
     if(strcmp(method,"GET")){ //add lowercase?
         printf("Bad Method\n");
-        sprintf(status1,"HTTP/1.1 400 Bad Request: Invalid Method: %s\r\n\r\n",method);
+        sprintf(status1,"HTTP/1.0 400 Bad Request: Invalid Method: %s\r\n\r\n",method);
         send(sock,status1,strlen(status1),0);
         char * message = "Error 400 Bad Request: Invalid Method\n";
         send(sock,message,strlen(message),0);
