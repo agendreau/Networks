@@ -19,6 +19,7 @@ void readLine(char firstLine[], int sock) {
     char c;
     int len;
     len = recv(sock, &c, 1, 0);
+    printf("len: %d\n",len);
     while (len == 1 && c != '\n') {
         firstLine[i] = c;;
         i++;
@@ -26,6 +27,7 @@ void readLine(char firstLine[], int sock) {
     }
     firstLine[i] = '\n';
     firstLine[i+1] = '\0';
+    printf("readLine: %s",firstLine);
  
 }
 
@@ -42,12 +44,12 @@ void readRequestProxy(char firstLine[], char content_type[], char content_length
      }*/
     strcpy(firstLine,buf);
     printf("the buffer is: %s\n",buf);
-    strcat(response,firstLine);
+    strcat(response,buf);
     while(strlen(buf)>2) {
         char *token;
         char *header;
         strcpy(copy_buffer,buf);
-        printf("the buffer is %s",buf);
+        printf("the buffer is %s\n",buf);
         //token = strtok_r(copy_buffer, delim,&token);
         header = strtok_r(copy_buffer, delim,&token);
         //printf("token: %s\n",token);
@@ -70,7 +72,7 @@ void readRequestProxy(char firstLine[], char content_type[], char content_length
         //printf("the new buffer is: %s\n",buf);
         
     }
-    strcat(response,"\r\n");
+    
   
     //return 1;
     //return keep_going;
@@ -91,13 +93,16 @@ void communicate(int client_sock,int proxy_sock,char * request){
     char content_length1[256];
     char connection[1024];
     char response[4096];
+    response[0]='\0';
     char buf[1024];
+    
     //sleep(5);
     readRequestProxy(firstLine,content_type,content_length,proxy_sock,connection,response);
+    strcat(response,"\r\n");
     char * buffer;
     //char * junk = "what is being sent\n";
     int c = atoi(content_length);
-    buffer = malloc(sizeof(char)*atoi(content_length));
+    //buffer = malloc(sizeof(char)*atoi(content_length));
     //printf("content length: %d\n",c);
     int i=0;
     /*sprintf(content_length1,"Content-Length: %s\r\n\r\n",content_length);
@@ -106,14 +111,29 @@ void communicate(int client_sock,int proxy_sock,char * request){
     send(client_sock,content_type,strlen(content_type),0);
     send(client_sock,content_length1,strlen(content_length1),0);*/
     send(client_sock,response,strlen(response),0);
-    
-    while ((i = recv(proxy_sock, buf, sizeof(buf),0))!= (size_t)NULL)//send file
+    printf("Response\n%s\n",response);
+    int bytes_read;
+    int bytes_sent;
+    //while ((i = recv(proxy_sock, buf, sizeof(buf),0))!= (size_t)NULL)//send file
+    if(c==0){
+        printf("we got true\n");
+        return;
+    }
+    while (i < c)//send file
     {
+        bytes_read = recv(proxy_sock, buf, sizeof(buf),0);
+        i=i+bytes_read;
         //strcat(buffer,buf);
-        send(client_sock,buf,strlen(buf),0);
+        bytes_sent = send(client_sock,buf,bytes_read,0);
+        /*if(bytes_read!=bytes_sent){
+            printf("error, read: %d, send: %d\n",bytes_read,bytes_sent);
+        }
+        else {
+            printf("bytes read/sent: %d\n",bytes_read);
+        }*/
     }
 
-    free(buffer);
+    //free(buffer);
     
     
 }
@@ -205,8 +225,14 @@ void *processRequest(void *s) { //,char *document_root) {
     //Setting everything up.  Not the best way to manage my memory
     int sock = *((int *) s);
     int selRet;
+    
+    struct timeval tv;
+    fd_set sockSet;
+    
+    FD_ZERO(&sockSet);
    
     char request[4096];
+    request[0]='\0';
     char firstLine[1024];
     char host[128];
     char connection[32];
@@ -221,17 +247,40 @@ void *processRequest(void *s) { //,char *document_root) {
     char default_file[33];
     int i=0;
     
+    
+    /* receiving loop
+     * continues to loop until timeout for keep-alive
+     * breaks out of loop if connection = close
+     */
+    while(1){
+        /*set up timer and socketSet for select statement*/
+        //reset timer each time around
+        FD_ZERO(&sockSet);
+        FD_SET(sock,&sockSet);
+        tv.tv_sec = 10;
+        tv.tv_usec = 0;
+        
+        selRet = select(sock+1,&sockSet,NULL,NULL,&tv);
+        //printf("fdset: %d\n",selRet);
+        //selRet=2; //for testing error 500
+        if(selRet==0) {//timeout :(
+            printf("we timed out.\n");
+            break;
+        }
+        
+        else if(selRet==1){
+    
     readRequest(firstLine,host,connection,sock,request);
-    printf("firstline: %s",firstLine);
-    printf("host: %s",host);
-    printf("connection: %s",connection);
-    printf("Request\n%s",request);
+    printf("firstline: %s\n",firstLine);
+    printf("host: %s\n",host);
+    printf("connection: %s\n",connection);
+    printf("Request\n%s\n",request);
     //check for errors
     
     strcpy(method,strtok_r(firstLine, delim,&token));
     printf("Method: %s\n",method);
     if(strlen(host)==0){
-        strcpy(host,"www.google.com\r\n");
+        strcpy(host,"math.ucsb.edu\r\n");
     }
             
     /* Am I an GET method? */
@@ -239,16 +288,17 @@ void *processRequest(void *s) { //,char *document_root) {
         printf("Bad Method\n");
         sprintf(status1,"HTTP/1.0 400 Bad Request: Invalid Method: %s\r\n\r\n",method);
         send(sock,status1,strlen(status1),0);
-        char * message = "Error 400 Bad Request: Invalid Method\n";
-        send(sock,message,strlen(message),0);
-        close(sock);
-        return NULL;
+        //char * message = "Error 400 Bad Request: Invalid Method\n";
+        //send(sock,message,strlen(message),0);
+        //close(sock);
+        break;
         
     }
     
     
     sendAndReceiverActual(sock,host,request);
-       
+        }
+    }
     //all done so we want to close the socket
     printf("we want to close the socket\n");
     close(sock);
@@ -274,7 +324,7 @@ void run_server(int port)
     
     if((sock = socket(AF_INET,SOCK_STREAM,0)) == -1)
     {
-        perror("socket: ");
+        printf("socket: \n");
         exit(-1);
     }
     
@@ -287,13 +337,13 @@ void run_server(int port)
     
     if((bind(sock,(struct sockaddr *)&server,len)) == -1)
     {
-        perror("bind");
+        printf("bind\n");
         exit(-1);
     }
     
     if((listen(sock,5))==-1)
     {
-        perror("listen");
+        printf("listen\n");
         exit(-1);
     }
     
@@ -301,13 +351,14 @@ void run_server(int port)
     {
         if((cli = accept(sock, (struct sockaddr *)&client,&len))==-1)
         {
-            perror("accept");
+            printf("accept\n");
             exit(-1);
         }
         
         sent = (int *) malloc(sizeof(int));
         *sent = cli;
-        pthread_create(&t,NULL,processRequest,(void *) sent);
+        //pthread_create(&t,NULL,processRequest,(void *) sent);
+        processRequest((void *) sent);
         free(sent);
         
     }
