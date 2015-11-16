@@ -14,6 +14,24 @@
 #include <netdb.h>
 
 
+
+/* returns the number of bytes in a file*/
+long GetFileSize(char* filename)
+{ /*Got from
+   http://cboard.cprogramming.com/c-programming/79016-function-returns-number-bytes-file.html
+   */
+    long size;
+    FILE *f;
+    
+    f = fopen(filename, "rb");
+    if (f == NULL) return -1;
+    fseek(f, 0, SEEK_END);
+    size = ftell(f);
+    fclose(f);
+    
+    return size;
+}
+
 void readLine(char firstLine[], int sock) {
     int i = 0;
     char c;
@@ -101,7 +119,8 @@ void communicate(int client_sock,int proxy_sock,char * request){
     strcat(response,"\r\n");
     char * buffer;
     //char * junk = "what is being sent\n";
-    int c = atoi(content_length);
+    long filesize = atol(content_length);
+    printf("content length: %ld\n",filesize);
     //buffer = malloc(sizeof(char)*atoi(content_length));
     //printf("content length: %d\n",c);
     int i=0;
@@ -112,30 +131,75 @@ void communicate(int client_sock,int proxy_sock,char * request){
     send(client_sock,content_length1,strlen(content_length1),0);*/
     send(client_sock,response,strlen(response),0);
     printf("Response\n%s\n",response);
-    int bytes_read;
-    int bytes_sent;
+    ssize_t total_read_bytes=0;
+    ssize_t read_bytes;
+    ssize_t bytes_sent;
     //while ((i = recv(proxy_sock, buf, sizeof(buf),0))!= (size_t)NULL)//send file
-    if(c==0){
+    if(filesize==0){
         printf("we got true\n");
         return;
     }
-    while (i < c)//send file
+    int remaining = filesize%1024;
+    FILE *fp = fopen("test.jpg","wb");
+    printf("Content length: %ld\n",filesize);
+    printf("remaining: %d\n",remaining);
+    while (total_read_bytes < filesize)//send file
     {
-        bytes_read = recv(proxy_sock, buf, sizeof(buf),0);
-        i=i+bytes_read;
-        //strcat(buffer,buf);
-        bytes_sent = send(client_sock,buf,bytes_read,0);
-        /*if(bytes_read!=bytes_sent){
-            printf("error, read: %d, send: %d\n",bytes_read,bytes_sent);
+        read_bytes = recv(proxy_sock, buf,sizeof(buf),0);
+        total_read_bytes+=read_bytes;
+        fwrite(buf,sizeof(char),read_bytes,fp);
+        bytes_sent = send(client_sock,buf,read_bytes,0);
+    }/*
+        while(filesize/1024 > 0){
+            read_bytes = recv(proxy_sock, buf,1024,0);
+            total_read_bytes+=read_bytes;
+            filesize = filesize - read_bytes;
+            //printf("total read bytes: %lu\n",total_read_bytes);
+            //printf("read bytes: %lu\n",read_bytes);
+            //strcat(buffer,buf);
+            fwrite(buf,sizeof(char),read_bytes,fp);
+            bytes_sent = send(client_sock,buf,read_bytes,0);
         }
-        else {
-            printf("bytes read/sent: %d\n",bytes_read);
+        if(remaining>0){
+            printf("processing remaining\n");
+            read_bytes = recv(proxy_sock, buf,remaining,0);
+            total_read_bytes+=read_bytes;
+            filesize = filesize - read_bytes;
+            fwrite(buf,sizeof(char),read_bytes,fp);
+            bytes_sent = send(client_sock,buf,read_bytes,0);
         }*/
+    //}
+    fclose(fp);
+    
+    /*long size = GetFileSize("test.jpg");
+    printf("Filesize: %ld\n",size);
+    fp = fopen("test.jpg","rb");
+    remaining = filesize%1024;
+    total_read_bytes=0;
+    read_bytes=0;
+    int success;
+    send(client_sock,response,strlen(response),0);
+    while(size/1024 > 0){
+        read_bytes=fread( buf, sizeof(char), 1024, fp );
+        size = size - read_bytes;
+        success = send(client_sock, buf, read_bytes,0);
+    }
+    if(remaining>0){
+        read_bytes=fread( buf, sizeof(char), remaining, fp );
+        success = send(client_sock, buf, read_bytes,0);
     }
 
+fclose(fp);*/
+
+
+
+
+
+
+
     //free(buffer);
-    
-    
+
+
 }
 
 
@@ -230,45 +294,47 @@ void *processRequest(void *s) { //,char *document_root) {
     fd_set sockSet;
     
     FD_ZERO(&sockSet);
+
+
    
-    char request[4096];
-    request[0]='\0';
-    char firstLine[1024];
-    char host[128];
-    char connection[32];
-    char delim[2] = " ";
-    char crlf[3] = "\r\n";
-    char uri[1024];
-    char status1[1024];
-    char method[16];
-    
-    int num = 0;
-    char *token;
-    char default_file[33];
-    int i=0;
     
     
-    /* receiving loop
-     * continues to loop until timeout for keep-alive
-     * breaks out of loop if connection = close
-     */
     while(1){
+        char request[4096];
+        request[0]='\0';
+        char firstLine[1024];
+        char host[128];
+        host[0]='\0';
+        char connection[32];
+        char delim[2] = " ";
+        char crlf[3] = "\r\n";
+        char uri[1024];
+        char status1[1024];
+        char method[16];
+        
+        int num = 0;
+        char *token;
+        char default_file[33];
+        int i=0;
         /*set up timer and socketSet for select statement*/
         //reset timer each time around
         FD_ZERO(&sockSet);
         FD_SET(sock,&sockSet);
-        tv.tv_sec = 10;
+        tv.tv_sec = 20;
         tv.tv_usec = 0;
         
         selRet = select(sock+1,&sockSet,NULL,NULL,&tv);
         //printf("fdset: %d\n",selRet);
         //selRet=2; //for testing error 500
         if(selRet==0) {//timeout :(
-            printf("we timed out.\n");
+           printf("we timed out.\n");
             break;
         }
         
         else if(selRet==1){
+    
+  
+
     
     readRequest(firstLine,host,connection,sock,request);
     printf("firstline: %s\n",firstLine);
@@ -280,7 +346,7 @@ void *processRequest(void *s) { //,char *document_root) {
     strcpy(method,strtok_r(firstLine, delim,&token));
     printf("Method: %s\n",method);
     if(strlen(host)==0){
-        strcpy(host,"math.ucsb.edu\r\n");
+        strcpy(host,"cs.wellesley.edu\r\n");
     }
             
     /* Am I an GET method? */
@@ -291,13 +357,19 @@ void *processRequest(void *s) { //,char *document_root) {
         //char * message = "Error 400 Bad Request: Invalid Method\n";
         //send(sock,message,strlen(message),0);
         //close(sock);
+        /*printf("we want to close the socket on bad request\n");
+        close(sock);
+        
+        return NULL;*/
         break;
+        
         
     }
     
     
     sendAndReceiverActual(sock,host,request);
-        }
+    
+       }
     }
     //all done so we want to close the socket
     printf("we want to close the socket\n");
@@ -346,7 +418,7 @@ void run_server(int port)
         printf("listen\n");
         exit(-1);
     }
-    
+    int i = 0;
     while(1)
     {
         if((cli = accept(sock, (struct sockaddr *)&client,&len))==-1)
@@ -354,11 +426,12 @@ void run_server(int port)
             printf("accept\n");
             exit(-1);
         }
-        
+        i++;
+        printf("DUMB: %d\n",i);
         sent = (int *) malloc(sizeof(int));
         *sent = cli;
-        //pthread_create(&t,NULL,processRequest,(void *) sent);
-        processRequest((void *) sent);
+        pthread_create(&t,NULL,processRequest,(void *) sent);
+        //processRequest((void *) sent);
         free(sent);
         
     }
