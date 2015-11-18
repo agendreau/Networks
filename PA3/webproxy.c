@@ -54,7 +54,7 @@ int readLine(char firstLine[], int sock) {
 long readRequestProxy(int server_sock, int client_sock,char response[],FILE *fp) {
     char buf[1024];
     char copy_buffer[1024];
-    memset(copy_buffer, '\0', sizeof(copy_buffer));
+    memset(copy_buffer, '\0', 1024);
     long content_length;
     char delim[2]=" ";
     readLine(buf,server_sock);
@@ -195,15 +195,13 @@ void readRequest(char firstLine[], char host[], char connection[],int sock,char 
     char buf[1024];
     
     char copy_buffer[1024];
-    memset(copy_buffer, '\0', sizeof(copy_buffer));
+    memset(copy_buffer, '\0', 1024);
     int len;
     char delim[2]=" ";
     int open = readLine(buf,sock);
     strcpy(firstLine,buf);
     strcat(request,buf);
     //printf("the buffer is: %s\n",buf);
-    int rl = 0;
-    rl+=strlen(buf);
     
     
     while(1) {
@@ -211,7 +209,7 @@ void readRequest(char firstLine[], char host[], char connection[],int sock,char 
         char *header;
         strcpy(copy_buffer,buf);
         
-        rl+=strlen(buf);
+        
         //token = strtok_r(copy_buffer, delim,&token);
         header = strtok_r(copy_buffer, delim,&token);
         printf("token: %s\n",header);
@@ -228,17 +226,21 @@ void readRequest(char firstLine[], char host[], char connection[],int sock,char 
         //printf("buf1: %d\n",strcmp(&request[rl-2],"\r"));
         printf("buf: %d\n",(strcmp(buf,"\r\n")));
         printf("open request: %d\n",open);
-        if(strcmp(buf,"\r\n")==0 || open<=0){// &&request[rl-1]=='\n' && request[rl-2]=='\r'){
+        //int len = strlen(request);
+        //char * last2 = &request[len-2];
+        if(strcmp(buf,"\r\n")==0 || open<=0) {//&& strcmp(last2,"\r\n")==0){//|| open<=0){// &&request[rl-1]=='\n' && request[rl-2]=='\r'){
             if(open<=0){
                 printf("here in request\n");
                 break;
             }
             else {
+                printf("request line end1: %s\n",request);
             strcat(request,buf);
+                printf("request line end2: %s\n",request);
             break;
             }
         }
-        
+        printf("request line: %s\n",request);
         strcat(request,buf);
         
     }
@@ -277,13 +279,13 @@ void *processRequest(void *s) { //,char *document_root) {
     char status1[1024];
     
     char *token;
-    memset(request, '\0', sizeof(request));
-    memset(firstLine, '\0', sizeof(firstLine));
-    memset(connection, '\0', sizeof(connection));
-    memset(host, '\0', sizeof(host));
-    memset(uri, '\0', sizeof(uri));
-    memset(method, '\0', sizeof(method));
-    memset(status1, '\0', sizeof(status1));
+    memset(request, '\0', 4096);
+    memset(firstLine, '\0', 1024);
+    memset(connection, '\0', 32);
+    memset(host, '\0', 128);
+    memset(uri, '\0', 1024);
+    memset(method, '\0', 16);
+    memset(status1, '\0', 1024);
 
   
 
@@ -329,6 +331,13 @@ void *processRequest(void *s) { //,char *document_root) {
             
     /* Am I an GET method? */
     if(strcmp(method,"GET")){ //add lowercase?
+        if(strcmp(method,"\n")==0){
+            printf("we want to close the socket on 0 request\n");
+            close(sock);
+            
+            return NULL;
+        }
+        else{
         printf("Bad Method\n");
         sprintf(status1,"HTTP/1.0 400 Bad Request: Invalid Method: %s\r\n\r\n",method);
         send(sock,status1,strlen(status1),0);
@@ -341,13 +350,19 @@ void *processRequest(void *s) { //,char *document_root) {
         
         return NULL;
         //break;
+        }
         
         
     }
+
     else {
     
     strcpy(uri,strtok_r(NULL, delim,&token));
     sendAndReceiverActual(sock,host,request,uri);
+        printf("we want to close the socket\n");
+        close(sock);
+        
+        return NULL;
        
     }
     
@@ -355,10 +370,7 @@ void *processRequest(void *s) { //,char *document_root) {
    // }
 
     //all done so we want to close the socket
-    printf("we want to close the socket\n");
-    close(sock);
     
-    return NULL;
 }
 
 
@@ -414,7 +426,7 @@ void run_server(int port)
         sent = (int *) malloc(sizeof(int));
         *sent = cli;
         pthread_create(&t,NULL,processRequest,(void *) sent);
-        processRequest((void *) sent);
+        //processRequest((void *) sent);
         free(sent);
         
     }
