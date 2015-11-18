@@ -13,6 +13,10 @@
 #include <sys/stat.h>
 #include <netdb.h>
 #include <openssl/md5.h>
+#include <sys/stat.h>
+#include <time.h>
+
+double expire_time = 10;
 
 
 /* Calculates MD5 hash of the file and populates a string hash with the filename */
@@ -26,7 +30,7 @@ void calculateHash(char * url, char hash[]) {
     MD5_Final (c,&mdContext);
     for(int i = 0; i < MD5_DIGEST_LENGTH; ++i)
         sprintf(&hash[i], "%02x", (unsigned int)c[i]);
-    printf("url: %s\n",hash);
+    //printf("url: %s\n",hash);
     
 }
 
@@ -36,7 +40,7 @@ int readLine(char firstLine[], int sock) {
     char c;
     int len;
     len = recv(sock, &c, 1, 0);
-    printf("len: %d\n",len);
+    //printf("len: %d\n",len);
     while (len == 1 && c != '\n') {
         firstLine[i] = c;;
         i++;
@@ -44,115 +48,152 @@ int readLine(char firstLine[], int sock) {
     }
     firstLine[i] = '\n';
     firstLine[i+1] = '\0';
-    printf("readLine: %s",firstLine);
+    //printf("readLine: %s",firstLine);
     return len;
  
 }
 
 /*reads the response from the server
  * return the content_length*/
-long readRequestProxy(int server_sock, int client_sock,char response[],FILE *fp) {
+long readRequestProxy(int server_sock, char response[],FILE *fp) {
     char buf[1024];
     char copy_buffer[1024];
     memset(copy_buffer, '\0', 1024);
-    long content_length;
+     memset(buf, '\0', 1024);
+    long content_length=0;
     char delim[2]=" ";
-    readLine(buf,server_sock);
-    //strcpy(firstLine,buf);
-    send(client_sock,buf,strlen(buf),0);
-    printf("the buffer is: %s\n",buf);
-    strcat(response,buf);
-    fwrite(buf,sizeof(char),strlen(buf),fp);
-   
-    
     int open;
+
     
     while(1) {
-        strcat(response,buf);
-        char *token;
+        char * token;
         char * header;
-        strcpy(copy_buffer,buf);
-        printf("the buffer is %s\n",buf);
-        
-        header = strtok_r(copy_buffer, delim,&token);
-       
-        if(strcmp(header,"Content-Length:")==0){
-            content_length = atol(strtok_r(NULL,delim,&token));
-        }
-        
         open = readLine(buf,server_sock);
-        printf("open response: %d\n",open);
-        
-        if(strcmp(buf,"\r\n")==0 || open<=0){// &&request[rl-1]=='\n' && request[rl-2]=='\r'){
-            if(open<=0){
-                printf("here in response\n");
-                break;
-            }
-            else {
-            send(client_sock,buf,strlen(buf),0);
+        if(open<=0){
+            //printf("here in response\n");
+            content_length=-1;
+            return content_length;
+        }
+        else if (strcmp(buf,"\r\n")==0) { //reached end of response header
             strcat(response,buf);
             fwrite(buf,sizeof(char),strlen(buf),fp);
-            break;
-            }
+            return content_length;
         }
         
-        strcat(response,buf);
-        fwrite(buf,sizeof(char),strlen(buf),fp);
-        
-        
-        
+        else {
+            //printf("the buffer is: %s\n",buf);
+            strcat(response,buf);
+            fwrite(buf,sizeof(char),strlen(buf),fp);
+   
+            strcpy(copy_buffer,buf);
+            header = strtok_r(copy_buffer, delim,&token);
+       
+            if(strcmp(header,"Content-Length:")==0){
+                content_length = atol(strtok_r(NULL,delim,&token));
+            }
+        }
     }
     
-  
-    return content_length;
-    
 }
-
 /* communicates between proxy, server, and client*/
 void communicate(int client_sock,int proxy_sock,char * request,char * url){
-    //printf("request\n");
-    //printf(request);
-    //strcpy(request,"GET http://www.ascentrobotics.com/ HTTP/1.0\r\n\r\n");
-    //char * request1 ="GET http://www.colorado.edu HTTP/1.0\r\n\r\n\r\n";
-    //printf(request1);
-    
-
+ 
     char hash[MD5_DIGEST_LENGTH+1];
     calculateHash(url,hash);
     FILE *fp;
-    fp = fopen(hash,"rb");
+    char hash_dir[32];
+    hash_dir[0]='h';
+    hash_dir[1]='a';
+    hash_dir[2]='s';
+    hash_dir[3]='h';
+    hash_dir[4]='/';
+    hash_dir[5]='\0';
+    strcat(hash_dir,hash);
+    //printf("cached filename: %s\n",hash_dir);
+    fp = fopen(hash_dir,"rb");
     char buf[1024];
     ssize_t total_read_bytes=0;
     ssize_t read_bytes;
     ssize_t bytes_sent;
+    
     if(fp!=NULL){//it's cached, is it current
         printf("currently cached\n");
-        while((read_bytes = fread(buf,sizeof(char),1024,fp))>0)
-            send(client_sock,buf,read_bytes,0);
+        time_t now;
+        time(&now);
+        struct stat cached_file;
+        stat(hash_dir,&cached_file);
+        double seconds = difftime(now,cached_file.st_mtime);
+        if(seconds < expire_time){
+            while((read_bytes = fread(buf,sizeof(char),1024,fp))>0)
+                send(client_sock,buf,read_bytes,0);
         
+            fclose(fp);
+            return;
+        }
+        else {
+            printf("cached version expired\n");
+            fclose(fp);
+        }
     }
-    else { //send to server and cache result
-        fp = fopen(hash,"wb");
-        int j = send(proxy_sock,request,strlen(request),0);
+    //send to server and cache result
+    fp = fopen(hash_dir,"wb");
+    char * status1 = "HTTP/1.1 500 Internal Server Error: Not responsive\r\n\r\n";
+    int j = send(proxy_sock,request,strlen(request),0);
+    if (j<=0){
+        printf("request failed to send\n");
+        send(client_sock,status1,strlen(status1),0);
+        fclose(fp);
+        remove(hash_dir);//prevents caching bad files
+        return;
+    }
+    else {
         printf("request sent: %d\n",j);
         char response[4096];
         memset(response, '\0', sizeof(response));
+        long content_length = readRequestProxy(proxy_sock,response,fp);
+        printf("Response\n%s\n",response);
+        if(content_length==-1){
+            printf("error in receiving request from server\n");
+            send(client_sock,status1,strlen(status1),0);
+            fclose(fp);
+            remove(hash_dir);//prevents caching bad files
+            return;
+        }
+        else {
+            //printf("we made it here\n");
+            bytes_sent=send(client_sock,response,strlen(response),0);
+            if(bytes_sent<=0){
+                printf("error in sending response to client\n");
+                fclose(fp);
+                remove(hash_dir);//prevents caching bad files
+                return;
+            }
+            else {
+                while(total_read_bytes<content_length){
+                    read_bytes = recv(proxy_sock, buf,1024,0);//send file
+                    if(read_bytes<=0){
+                        printf("error in reading file from server\n");
+                        fclose(fp);
+                        remove(hash_dir);//prevents caching bad files
+                        return;
+                    }
+                    total_read_bytes+=read_bytes;
+                    fwrite(buf,sizeof(char),read_bytes,fp);
+                    bytes_sent = send(client_sock,buf,read_bytes,0);
+                    if(bytes_sent<=0){
+                        printf("error in sending file to client\n");
+                        fclose(fp);
+                        remove(hash_dir);//prevents caching bad files
+                        return;
+                    }
+                }
     
-        long content_length = readRequestProxy(proxy_sock,client_sock,response,fp);
-    
-        printf("we made it here\n");
-    
-    
-    while(total_read_bytes<content_length){
-        read_bytes = recv(proxy_sock, buf,1024,0);//send file
-        total_read_bytes+=read_bytes;
-        fwrite(buf,sizeof(char),read_bytes,fp);
-        bytes_sent = send(client_sock,buf,read_bytes,0);
+                //printf("out of while\n");
+            }
+        }
     }
-    
-    printf("out of while\n");
-    }
-    fclose(fp);
+
+fclose(fp);
 
 }
 
@@ -199,20 +240,19 @@ void readRequest(char firstLine[], char host[], char connection[],int sock,char 
     int len;
     char delim[2]=" ";
     int open = readLine(buf,sock);
-    strcpy(firstLine,buf);
+    strcpy(firstLine,buf); //get firstline
     strcat(request,buf);
-    //printf("the buffer is: %s\n",buf);
-    
+    if(open<=0){
+        //printf("here in request\n");
+        return;
+    }
     
     while(1) {
         char *token;
         char *header;
         strcpy(copy_buffer,buf);
-        
-        
-        //token = strtok_r(copy_buffer, delim,&token);
         header = strtok_r(copy_buffer, delim,&token);
-        printf("token: %s\n",header);
+        //printf("token: %s\n",header);
         if(strcmp(header,"host:")==0 || strcmp(header,"HOST:")==0 || strcmp(header,"Host:")==0){
             strcpy(host,strtok_r(NULL, delim,&token));
             //printf("host: %s",host);
@@ -222,25 +262,14 @@ void readRequest(char firstLine[], char host[], char connection[],int sock,char 
             strcpy(connection,strtok_r(NULL, delim,&token));
         }
         open = readLine(buf,sock);
-        //printf("buf2: %d\n",strcmp(&request[rl-1],"\n"));
-        //printf("buf1: %d\n",strcmp(&request[rl-2],"\r"));
-        printf("buf: %d\n",(strcmp(buf,"\r\n")));
-        printf("open request: %d\n",open);
-        //int len = strlen(request);
-        //char * last2 = &request[len-2];
-        if(strcmp(buf,"\r\n")==0 || open<=0) {//&& strcmp(last2,"\r\n")==0){//|| open<=0){// &&request[rl-1]=='\n' && request[rl-2]=='\r'){
-            if(open<=0){
-                printf("here in request\n");
-                break;
-            }
-            else {
-                printf("request line end1: %s\n",request);
-            strcat(request,buf);
-                printf("request line end2: %s\n",request);
-            break;
-            }
+        if(open<=0){
+            return;
         }
-        printf("request line: %s\n",request);
+
+        else if(strcmp(buf,"\r\n")==0){
+            strcat(request,buf);
+            return;
+        }
         strcat(request,buf);
         
     }
@@ -314,11 +343,17 @@ void *processRequest(void *s) { //,char *document_root) {
 
     
     readRequest(firstLine,host,connection,sock,request);
-    printf("firstline: %s\n",firstLine);
-    printf("host: %s\n",host);
-    printf("connection: %s\n",connection);
+    //printf("firstline: %s\n",firstLine);
+    //printf("host: %s\n",host);
+    //printf("connection: %s\n",connection);
     printf("Request\n%s\n",request);
     //check for errors
+    if(strlen(request)==1){
+        printf("we want to close the socket on bad why why why request\n");
+        close(sock);
+        printf("we want to close the socket on bad why why request\n");
+        return NULL;
+    }
     
    
     
@@ -425,8 +460,8 @@ void run_server(int port)
         printf("DUMB: %d\n",i);
         sent = (int *) malloc(sizeof(int));
         *sent = cli;
-        pthread_create(&t,NULL,processRequest,(void *) sent);
-        //processRequest((void *) sent);
+        //pthread_create(&t,NULL,processRequest,(void *) sent);
+        processRequest((void *) sent);
         free(sent);
         
     }
