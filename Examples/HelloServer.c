@@ -207,10 +207,11 @@ void sendBinary(int sock,char * filename){
  * closes the connection immediately after message sent (close)
  */
 
-void *processRequest(void *s) { //,char *document_root) {
+//void *processRequest(void *s) { //,char *document_root) {
+void processRequest(int sock) { //,char *document_root) {
     
     //Setting everything up.  Not the best way to manage my memory
-    int sock = *((int *) s);
+    //int sock = *((int *) s);
     int selRet;
     
     struct timeval tv;
@@ -401,7 +402,7 @@ void *processRequest(void *s) { //,char *document_root) {
     printf("we want to close the socket\n");
     close(sock);
     
-    return NULL;
+    //return NULL;
 }
 
 
@@ -450,11 +451,12 @@ void run_server(int port)
             exit(-1);
         }
 
-        sent = (int *) malloc(sizeof(int));
-        *sent = cli;
+        //sent = (int *) malloc(sizeof(int));
+        //*sent = cli;
         //pthread_create(&t,NULL,processRequest,(void *) sent);
-        processRequest((void *) sent);
-        free(sent);
+        //processRequest((void *) sent);
+        processRequest(cli);
+        //free(sent);
         
     }
     close(sock);
