@@ -235,11 +235,11 @@ void *processRequest(void *s) { //,char *document_root) {
     char *token;
     char default_file[33];
     int i=0;
-    
+    int j=0;
     strcpy(default_file,"");
     /*search for valid default file*/
     FILE *test_index;
-    for(int j=0;j<dirIndexCount;j++){
+    for(j=0;j<dirIndexCount;j++){
         if((test_index = fopen(strcat(strcat(strdup(document_root),"/"),default_files[j]),"r"))!=NULL){
             strcpy(default_file,default_files[j]);
             break;
@@ -452,7 +452,8 @@ void run_server(int port)
 
         sent = (int *) malloc(sizeof(int));
         *sent = cli;
-        pthread_create(&t,NULL,processRequest,(void *) sent);
+        //pthread_create(&t,NULL,processRequest,(void *) sent);
+        processRequest((void *) sent);
         free(sent);
         
     }
