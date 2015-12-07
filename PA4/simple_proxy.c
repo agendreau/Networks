@@ -14,6 +14,7 @@
 #include <netdb.h>
 #include <sys/stat.h>
 #include <netinet/ip.h>
+#include <math.h>
 
 #define SO_ORIGINAL_DST 80
 
@@ -173,11 +174,7 @@ void *processRequest(void *s) { //,char *document_root) {
     
     getpeername(client_sock,(struct sockaddr *)&client_addr,&client_len);
     
-    printf( "Server Destination: %s:%hu\n", inet_ntoa(proxy_addr.sin_addr), ntohs(proxy_addr.sin_port));
-    
-    printf( "Client Source: %s:%hu\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
-    
-    printf( "Client Destination: %s:%hu\n", inet_ntoa(dest_addr.sin_addr), ntohs(dest_addr.sin_port));
+
     
     struct sockaddr_in server_addr;
     memset(&server_addr, 0, sizeof(server_addr));
@@ -195,10 +192,14 @@ void *processRequest(void *s) { //,char *document_root) {
     getsockname(server_sock,(struct sockaddr *)&proxy_addr,&proxy_len);
     
     char comm[1000];
-    snprintf(comm, sizeof(comm), "“iptables -t nat -A POSTROUTING -p tcp -j SNAT --sport %hu --to-source %s", ntohs(proxy_addr.sin_port),inet_ntoa(client_addr.sin_addr));
+    snprintf(comm, sizeof(comm), "iptables -t nat -A POSTROUTING -p tcp -j SNAT --sport %hu --to-source %s", ntohs(proxy_addr.sin_port),inet_ntoa(client_addr.sin_addr));
     system(comm);
     
+    printf( "Server Destination: %s:%hu\n", inet_ntoa(proxy_addr.sin_addr), ntohs(proxy_addr.sin_port));
     
+    printf( "Client Source: %s:%hu\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+    
+    printf( "Client Destination: %s:%hu\n", inet_ntoa(dest_addr.sin_addr), ntohs(dest_addr.sin_port));
     
     
     // Now connect to the server
@@ -208,14 +209,14 @@ void *processRequest(void *s) { //,char *document_root) {
     }
     
     int select_client;
-    int select_server;
+    //int select_server;
     
     struct timeval tv;
     fd_set set_client;
-    fd_set set_server;
+    //fd_set set_server;
     
     FD_ZERO(&set_client);
-    FD_ZERO(&set_server);
+    //FD_ZERO(&set_server);
     char buf[1024];
     memset(buf, '\0', 1024);
 
@@ -223,10 +224,11 @@ void *processRequest(void *s) { //,char *document_root) {
     while(1){
         FD_ZERO(&set_client);
         FD_SET(client_sock,&set_client);
+        FD_SET(server_sock,&set_client);
         tv.tv_sec = 10;
         tv.tv_usec = 0;
         
-        select_client = select(client_sock+1,&set_client,NULL,NULL,&tv);
+        select_client = select(fmax(client_sock,server_sock)+1,&set_client,NULL,NULL,&tv);
         //printf("fdset: %d\n",selRet);
         //selRet=2; //for testing error 500
         if(select_client==0) {//timeout :(
@@ -235,13 +237,19 @@ void *processRequest(void *s) { //,char *document_root) {
         }
         
         else if(select_client==1){
-            long bytes_read = recv(client_sock,buf,1024,0);
-            send(server_sock,buf,bytes_read,0);
+            if(FD_ISSET(client_sock,&set_client)){
+                long bytes_read = recv(client_sock,buf,1024,0);
+                send(server_sock,buf,bytes_read,0);
+            }
+            if(FD_ISSET(server_sock,&set_client)){
+                long bytes_read = recv(server_sock,buf,1024,0);
+                send(client_sock,buf,bytes_read,0);
+            }
         }
         
     }
     
-    while(1){
+    /*while(1){
         FD_ZERO(&set_server);
         FD_SET(server_sock,&set_server);
         tv.tv_sec = 10;
@@ -261,7 +269,7 @@ void *processRequest(void *s) { //,char *document_root) {
         }
 
         
-    }
+    }*/
     
     //Communicate between the server and the client
     
