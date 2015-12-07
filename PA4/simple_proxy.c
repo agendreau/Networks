@@ -210,7 +210,7 @@ int main(int argc, char *argv[]){
     else {
         //Add DNAT rule
         char comm[1000];
-        snprintf(comm, sizeof(comm), "iptables -t nat -A PREROUTING -p tcp -i eth0 -j DNAT --to 192168.0.1:%s", argv[1]);
+        snprintf(comm, sizeof(comm), "iptables -t nat -A PREROUTING -p tcp -i eth0 -j DNAT --to 192.168.0.1:%s", argv[1]);
         system(comm);
         run_server(atoi(argv[1]));
     }
