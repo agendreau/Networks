@@ -49,6 +49,10 @@ int readLine(char firstLine[], int sock) {
 
 void *processRequest(void *s) { //,char *document_root) {
     
+    /* Help from here
+     * http://ubuntuforums.org/showthread.php?t=634216
+     */
+    
     //Setting everything up.  Not the best way to manage my memory
     int client_sock = *((int *) s);
     free(s);
@@ -59,43 +63,76 @@ void *processRequest(void *s) { //,char *document_root) {
     
     getsockopt(client_sock, SOL_IP, SO_ORIGINAL_DST, &dest_addr, &dest_len);
     
-    printf( "Client: %s:%hu\n", inet_ntoa(dest_addr.sin_addr), ntohs(dest_addr.sin_port));
+    printf( "Client Destination: %s:%hu\n", inet_ntoa(dest_addr.sin_addr), ntohs(dest_addr.sin_port));
     
-    /*
-    int proxyClient;
-    struct addrinfo hints, *res;
     
-    memset(&hints, 0, sizeof hints);
-    hints.ai_family = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
     
-    //char * port = "80";
-    //host[strlen(host)-2]='\0'; //get rid of the \r\n
-    //printf("Actual host: %s\n",host);
     
-    getaddrinfo(host, port, &hints, &res);
-    getpeerName(client_sock) = "host";
+    
+    
+    
+   
+    
+    struct sockaddr_in proxy_addr;
+    socklen_t proxy_len = sizeof(proxy_addr);
+    memset(&proxy_addr, 0, proxy_len);
+    
+    struct sockaddr_in client_addr;
+    socklen_t client_len = sizeof(client_addr);
+    memset(&client_addr, 0, client_len);
+    
+    
+    
+    char port[100];
+    sprintf(port,"%hu",ntohs(dest_addr.sin_port));
+    
+   
+    
     //get source port of client oscket
     
-    //seg fault if server isn't running (i.e. get address info of inactive port)
-    proxyClient = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
     
-    //get port it will try to connect on?
     
-    proxyClient.bind(("10.0.0.1", 0));
+    
+    
+    
+    
+    getpeername(client_sock,(struct sockaddr *)&client_addr,&client_len);
+    
+    printf( "Server Destination: %s:%hu\n", inet_ntoa(proxy_addr.sin_addr), ntohs(proxy_addr.sin_port));
+    
+    printf( "Client Source: %s:%hu\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+    
+    struct sockaddr_in server_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = htons(0);
+    inet_aton("10.0.0.1", &server_addr.sin_addr);
+    
+    int server_sock = socket(AF_INET,SOCK_STREAM,0);
+    
+    if (bind(server_sock, (struct sockaddr *) &server_addr, sizeof(server_addr)) < 0) {
+        perror("bind");
+        exit(1);
+    }
+    
+    getsockname(server_sock,(struct sockaddr *)&proxy_addr,&proxy_len);
+    
+    char comm[1000];
+    snprintf(comm, sizeof(comm), "“iptables –t nat –A POSTROUTING –p tcp –j SNAT --sport %hu --to-source %s", ntohs(proxy_addr.sin_port),inet_ntoa(dest_addr.sin_addr));
+    system(comm);
     
     
     
     
     // Now connect to the server
-    if (connect(proxyClient, res->ai_addr, res->ai_addrlen) < 0) {
-        printf("ERROR connecting to server %s\n",port);
+    if (connect(server_sock, (struct sockaddr *)&dest_addr, dest_len) < 0) {
+        printf("ERROR connecting to server \n");
         //exit(1);
     }
     
     //Communicate between the server and the client
-    communicate(client_sock,proxyClient,request,uri,content_length);
-    close(proxyClient); */
+    
+    close(server_sock);
     
     
    
