@@ -39,6 +39,106 @@ int readLine(char firstLine[], int sock) {
     
 }
 
+/* Reads the response header from the server using the readline function
+ * Stores the response header in the response string
+ * Writes the response to a file for caching
+ * Returns...
+ *  The content length of the response body
+ *  -1 if there is an error in reading the response
+ *  -2 if there is no Content-Length field in the response (note content length is required by HTTP/1.0
+ */
+long readRequestProxy(int server_sock, char response[]) {
+    char buf[1024];
+    char length[65];
+    memset(length, '\0', 65);
+    memset(buf, '\0', 1024);
+    long content_length=-2;
+    int open;
+    
+    
+    while(1) {
+        open = readLine(buf,server_sock);
+        if(open<=0){ //error reading from serving
+            //printf("here in response\n");
+            content_length=-1;
+            return content_length;
+        }
+        else if (strcmp(buf,"\r\n")==0) { //reached end of response header
+            strcat(response,buf);
+            return content_length;
+        }
+        else if(strncmp(buf,"Content-Length:",15)==0){
+            
+            strcat(response,buf);
+            int i=16;
+            while(buf[i]!='\r'){
+                length[i-16]=buf[i];
+                i++;
+            }
+            printf("content length:%s\n",length);
+            content_length=atol(length);
+            printf("content length:%lu\n",content_length);
+        }
+        
+        
+        else {
+            //printf("the buffer is: %s\n",buf);
+            strcat(response,buf);
+        }
+    }
+    
+}
+
+
+
+/* Reads the request from the client
+ * Stores entire request in request string
+ * Return the content length of the request body if one exists
+ * If one exists it must be specified in the header field: Content-Length
+ */
+
+long readRequest(int sock,char request[]) {
+    
+    char buf[1024];
+    char length[65];
+    memset(length, '\0', 65);
+    memset(buf, '\0', 1024);
+    long content_length=0;
+    int open;
+    
+    
+    while(1) {
+        open = readLine(buf,sock);
+        if(open<=0){
+            content_length=-1;
+            return content_length;
+        }
+        else if(strncmp(buf,"Content-Length:",15)==0){
+            
+            strcat(request,buf);
+            
+            int i=16;
+            while(buf[i]!='\r'){
+                length[i-16]=buf[i];
+                i++;
+            }
+            printf("content length:%s\n",length);
+            content_length=atol(length);
+            printf("content length:%lu\n",content_length);
+        }
+        
+        else if(strcmp(buf,"\r\n")==0){
+            strcat(request,buf);
+            return content_length;
+        }
+        else {
+            strcat(request,buf);
+        }
+        
+    }
+    
+}
+
 
 /* Processes the client request
  * Reads the request
@@ -63,16 +163,6 @@ void *processRequest(void *s) { //,char *document_root) {
     
     getsockopt(client_sock, SOL_IP, SO_ORIGINAL_DST, &dest_addr, &dest_len);
     
-    printf( "Client Destination: %s:%hu\n", inet_ntoa(dest_addr.sin_addr), ntohs(dest_addr.sin_port));
-    
-    
-    
-    
-    
-    
-    
-   
-    
     struct sockaddr_in proxy_addr;
     socklen_t proxy_len = sizeof(proxy_addr);
     memset(&proxy_addr, 0, proxy_len);
@@ -81,26 +171,13 @@ void *processRequest(void *s) { //,char *document_root) {
     socklen_t client_len = sizeof(client_addr);
     memset(&client_addr, 0, client_len);
     
-    
-    
-    char port[100];
-    sprintf(port,"%hu",ntohs(dest_addr.sin_port));
-    
-   
-    
-    //get source port of client oscket
-    
-    
-    
-    
-    
-    
-    
     getpeername(client_sock,(struct sockaddr *)&client_addr,&client_len);
     
     printf( "Server Destination: %s:%hu\n", inet_ntoa(proxy_addr.sin_addr), ntohs(proxy_addr.sin_port));
     
     printf( "Client Source: %s:%hu\n", inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+    
+    printf( "Client Destination: %s:%hu\n", inet_ntoa(dest_addr.sin_addr), ntohs(dest_addr.sin_port));
     
     struct sockaddr_in server_addr;
     memset(&server_addr, 0, sizeof(server_addr));
@@ -118,7 +195,7 @@ void *processRequest(void *s) { //,char *document_root) {
     getsockname(server_sock,(struct sockaddr *)&proxy_addr,&proxy_len);
     
     char comm[1000];
-    snprintf(comm, sizeof(comm), "“iptables –t nat –A POSTROUTING –p tcp –j SNAT --sport %hu --to-source %s", ntohs(proxy_addr.sin_port),inet_ntoa(dest_addr.sin_addr));
+    snprintf(comm, sizeof(comm), "“iptables -t nat -A POSTROUTING -p tcp -j SNAT --sport %hu --to-source %s", ntohs(proxy_addr.sin_port),inet_ntoa(client_addr.sin_addr));
     system(comm);
     
     
@@ -132,10 +209,33 @@ void *processRequest(void *s) { //,char *document_root) {
     
     //Communicate between the server and the client
     
+    char request[4096];
+    memset(request, '\0', 4096);
+    int content_length = readRequest(client_sock,request);
+    printf("Request\n%s\n",request);
+    int sent = send(server_sock,request,strlen(request),0);
+    printf("success: %d\n",sent);
+    
+    char response[4096];
+    memset(response, '\0', sizeof(response));
+    long response_content = readRequestProxy(server_sock,response);
+    printf("Response\n%s\n",response);
+    printf("Response content: %lu\n",response_content);
+    send(client_sock,response,strlen(response),0);
+    
+    char buf[1025];
+    size_t total_read_bytes=0;
+    size_t read_bytes=0;
+    while(total_read_bytes<response_content){
+        read_bytes = recv(server_sock, buf,1024,0);//send file
+        total_read_bytes+=read_bytes;
+        send(client_sock,buf,read_bytes,0);
+    }
+
+
+    
+    
     close(server_sock);
-    
-    
-   
     
     close(client_sock);
     
