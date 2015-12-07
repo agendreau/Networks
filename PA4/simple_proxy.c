@@ -207,9 +207,65 @@ void *processRequest(void *s) { //,char *document_root) {
         //exit(1);
     }
     
+    int select_client;
+    int select_server;
+    
+    struct timeval tv;
+    fd_set set_client;
+    fd_set set_server;
+    
+    FD_ZERO(&set_client);
+    FD_ZERO(&set_server);
+    char buf[1024];
+    memset(buf, '\0', 1024);
+
+    
+    while(1){
+        FD_ZERO(&set_client);
+        FD_SET(client_sock,&set_client);
+        tv.tv_sec = 10;
+        tv.tv_usec = 0;
+        
+        select_client = select(client_sock+1,&set_client,NULL,NULL,&tv);
+        //printf("fdset: %d\n",selRet);
+        //selRet=2; //for testing error 500
+        if(select_client==0) {//timeout :(
+            printf("we timed out.\n");
+            break;
+        }
+        
+        else if(select_client==1){
+            long bytes_read = recv(client_sock,buf,1024,0);
+            send(server_sock,buf,bytes_read,0);
+        }
+        
+    }
+    
+    while(1){
+        FD_ZERO(&set_server);
+        FD_SET(server_sock,&set_server);
+        tv.tv_sec = 10;
+        tv.tv_usec = 0;
+        
+        select_server = select(server_sock+1,&set_server,NULL,NULL,&tv);
+        //printf("fdset: %d\n",selRet);
+        //selRet=2; //for testing error 500
+        if(select_server==0) {//timeout :(
+            printf("we timed out.\n");
+            break;
+        }
+        
+        else if(select_server==1){
+            long bytes_read = recv(server_sock,buf,1024,0);
+            send(client_sock,buf,bytes_read,0);
+        }
+
+        
+    }
+    
     //Communicate between the server and the client
     
-    char request[4096];
+    /*char request[4096];
     memset(request, '\0', 4096);
     int content_length = readRequest(client_sock,request);
     printf("Request\n%s\n",request);
@@ -230,7 +286,7 @@ void *processRequest(void *s) { //,char *document_root) {
         read_bytes = recv(server_sock, buf,1024,0);//send file
         total_read_bytes+=read_bytes;
         send(client_sock,buf,read_bytes,0);
-    }
+    }*/
 
 
     
