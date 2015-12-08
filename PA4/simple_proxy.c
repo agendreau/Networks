@@ -279,72 +279,62 @@ void processHTTPRequest(int client_sock,int server_sock,long * total_bytes_recei
 
 void processSSHRequest(int client_sock,int server_sock,long * total_bytes_received,long * total_bytes_sent){
     
+    int select_client;
+    //int select_server;
     
-    /* read line from socket character by character */
-    char request[1024];
+    struct timeval tv;
+    fd_set set_client;
+    //fd_set set_server;
+    
+    FD_ZERO(&set_client);
+    //FD_ZERO(&set_server);
     char buf[1024];
-    memset(request, '\0', 1024);
     memset(buf, '\0', 1024);
+    long bytes_client=0;
+    long bytes_server=0;
+    
     long tr=0;
     long ts=0;
+    
+    
     while(1){
-        if(strcmp(request,"exit\n")==0){
-            readLine(request, client_sock);
-            send(server_sock,request,strlen(request),0);
-            long bytes_server = recv(server_sock,buf,1024,0);
-            send(client_sock,buf,strlen(buf),0);
-            break;
-        }
+        FD_ZERO(&set_client);
+        FD_SET(client_sock,&set_client);
+        FD_SET(server_sock,&set_client);
+        tv.tv_sec = 10000;
+        tv.tv_usec = 0;
         
-        readLine(request, client_sock);
-        send(server_sock,request,strlen(request),0);
+        select_client = select(MAX(client_sock,server_sock)+1,&set_client,NULL,NULL,&tv);
+        //printf("fdset: %d\n",selRet);
+        //selRet=2; //for testing error 500
         
-    
-        int select_server;
-    
-        struct timeval tv;
-        fd_set set_server;
-    
         
-        FD_ZERO(&set_server);
-
-    
-        long bytes_client=0;
-        long bytes_server=0;
-    
-
-    
-        while(1){
-            FD_ZERO(&set_server);
-            FD_SET(server_sock,&set_server);
-            tv.tv_sec = 10;
-            tv.tv_usec = 0;
-        
-            select_server = select(server_sock+1,&set_server,NULL,NULL,&tv);
-
-            if(select_server==0) {//timeout :(
-                printf("we timed out.\n");
-                break;
+        if(select_client==1){
+            if(FD_ISSET(client_sock,&set_client)){
+                bytes_client = recv(client_sock,buf,1024,0);
+                send(server_sock,buf,bytes_client,0);
+                ts+=bytes_client;
             }
-        
-            else if(select_server==1){
+            if(FD_ISSET(server_sock,&set_client)){
                 bytes_server = recv(server_sock,buf,1024,0);
                 send(client_sock,buf,bytes_server,0);
                 tr+=bytes_server;
             }
-            
-            else if(select_server<0){
-                printf("error in selecting socket from set\n");
-                break;
-            }
-        
         }
+        
+        else if(select_client<0){
+            printf("error in selecting socket from set\n");
+            break;
+        }
+        
     }
     *total_bytes_sent=ts;
     *total_bytes_received=tr;
-
+    
     
 }
+    
+
 
 void processFTPRequest(int client_sock,int server_sock,long * total_bytes_received,long * total_bytes_sent){
     processSSHRequest(client_sock,server_sock,total_bytes_received,total_bytes_sent);
