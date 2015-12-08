@@ -281,14 +281,14 @@ void processHTTPRequest(int client_sock,int server_sock,long * total_bytes_recei
 
 void processSSHRequest(int client_sock,int server_sock,long * total_bytes_received,long * total_bytes_sent){
     
-    int select_client;
+    int sel_ret;
     //int select_server;
     
     struct timeval tv;
-    fd_set set_client;
+    fd_set socket_set;
     //fd_set set_server;
     
-    FD_ZERO(&set_client);
+    FD_ZERO(&socket_set);
     //FD_ZERO(&set_server);
     char buf[1024];
     memset(buf, '\0', 1024);
@@ -300,41 +300,46 @@ void processSSHRequest(int client_sock,int server_sock,long * total_bytes_receiv
     
     int done = 0; 
     while(1){
-        FD_ZERO(&set_client);
-        FD_SET(client_sock,&set_client);
-        FD_SET(server_sock,&set_client);
+        FD_ZERO(&socket_set);
+        FD_SET(client_sock,&socket_set);
+        FD_SET(server_sock,&socket_set);
         tv.tv_sec = 10;
         tv.tv_usec = 0;
 
 
-        select_client = select(MAX(client_sock,server_sock)+1,&set_client,NULL,NULL,&tv);
+        sel_ret = select(MAX(client_sock,server_sock)+1,&socket_set,NULL,NULL,&tv);
+
         //printf("fdset: %d\n",selRet);
         //selRet=2; //for testing error 500
         
         
-        if(select_client==1){
-            if(FD_ISSET(client_sock,&set_client)){
+        if(sel_ret>=1){
+            if(FD_ISSET(client_sock,&socket_set)){
                 bytes_client = recv(client_sock,buf,1024,0);
-		printf("buf: %s\n",buf);
-		if(strncmp(buf,"exit",4)==0)
-			done = 1;
                 send(server_sock,buf,bytes_client,0);
                 ts+=bytes_client;
+		if(bytes_client<=0){
+			printf("read 0 client\n");
+			break;
+		}
+			
             }
-            if(FD_ISSET(server_sock,&set_client)){
+            if(FD_ISSET(server_sock,&socket_set)){
                 bytes_server = recv(server_sock,buf,1024,0);
                 send(client_sock,buf,bytes_server,0);
                 tr+=bytes_server;
+		if(bytes_server<=0){
+			printf("read 0 client\n");
+			break;
+		}
             }
         }
         
-        else if(select_client<0){
-            printf("error in selecting socket from set\n");
+        /*else if(sel_ret<=0){
+            printf("all done\n");
             break;
-        }
+        }*/
 
-	if(done)
-		break;
         
     }
     *total_bytes_sent=ts;
@@ -442,17 +447,6 @@ void *processRequest(void *s) { //,char *document_root) {
         
     }
     
-    else if(port==21) {//ftp
-        if (connect(server_sock, (struct sockaddr *)&dest_addr, dest_len) < 0) 
-            printf("ERROR connecting to ftp server \n");
-        else     
-            processFTPRequest(client_sock,server_sock,&total_bytes_received,&total_bytes_sent);
-        close(client_sock);
-        close(server_sock);
-            
-            //exit(1);
-        
-    }
     
     else if(port==8080) {//my webserver
         printf("in http request\n");
@@ -467,14 +461,25 @@ void *processRequest(void *s) { //,char *document_root) {
 	}
     
     
-    else { //invalid port number
+    else {//ftp
+        if (connect(server_sock, (struct sockaddr *)&dest_addr, dest_len) < 0) 
+            printf("ERROR connecting to ftp server \n");
+        else     
+            processFTPRequest(client_sock,server_sock,&total_bytes_received,&total_bytes_sent);
+        close(client_sock);
+        close(server_sock);
+            
+            //exit(1);
+        
+    }
+    /*else { //invalid port number
         char * status = "Invalid Connection Port\n";
         send(client_sock,status,strlen(status),0);
         close(client_sock);
         close(server_sock);
         
         
-    }
+    }*/
     
     
     //clean up
