@@ -20,6 +20,8 @@
 
 #define MAX(a,b) ((a)>(b)?(a):(b))
 
+pthread_mutex_t lock;
+
 /* read line from socket character by character */
 int readLine(char firstLine[], int sock) {
     int i = 0;
@@ -296,14 +298,15 @@ void processSSHRequest(int client_sock,int server_sock,long * total_bytes_receiv
     long tr=0;
     long ts=0;
     
-    
+    int done = 0; 
     while(1){
         FD_ZERO(&set_client);
         FD_SET(client_sock,&set_client);
         FD_SET(server_sock,&set_client);
-        tv.tv_sec = 10000;
+        tv.tv_sec = 10;
         tv.tv_usec = 0;
-        
+
+
         select_client = select(MAX(client_sock,server_sock)+1,&set_client,NULL,NULL,&tv);
         //printf("fdset: %d\n",selRet);
         //selRet=2; //for testing error 500
@@ -312,6 +315,9 @@ void processSSHRequest(int client_sock,int server_sock,long * total_bytes_receiv
         if(select_client==1){
             if(FD_ISSET(client_sock,&set_client)){
                 bytes_client = recv(client_sock,buf,1024,0);
+		printf("buf: %s\n",buf);
+		if(strncmp(buf,"exit",4)==0)
+			done = 1;
                 send(server_sock,buf,bytes_client,0);
                 ts+=bytes_client;
             }
@@ -326,6 +332,9 @@ void processSSHRequest(int client_sock,int server_sock,long * total_bytes_receiv
             printf("error in selecting socket from set\n");
             break;
         }
+
+	if(done)
+		break;
         
     }
     *total_bytes_sent=ts;
@@ -392,9 +401,11 @@ void *processRequest(void *s) { //,char *document_root) {
     
     getsockname(server_sock,(struct sockaddr *)&proxy_addr,&proxy_len);
     
+    pthread_mutex_lock(&lock);
     char comm[1000];
     snprintf(comm, sizeof(comm), "iptables -t nat -A POSTROUTING -p tcp -j SNAT --sport %hu --to-source %s", ntohs(proxy_addr.sin_port),inet_ntoa(client_addr.sin_addr));
     system(comm);
+    pthread_mutex_unlock(&lock);
     
     printf( "Server Destination: %s:%hu\n", inet_ntoa(proxy_addr.sin_addr), ntohs(proxy_addr.sin_port));
     
@@ -467,6 +478,8 @@ void *processRequest(void *s) { //,char *document_root) {
     
     
     //clean up
+    printf("at cleanup\n");
+    pthread_mutex_lock(&lock);
     snprintf(comm, sizeof(comm), "iptables -t nat -D POSTROUTING -p tcp -j SNAT --sport %hu --to-source %s", ntohs(proxy_addr.sin_port),inet_ntoa(client_addr.sin_addr));
     system(comm);
     
@@ -477,6 +490,7 @@ void *processRequest(void *s) { //,char *document_root) {
             total_bytes_sent,total_bytes_received);
     fwrite(log,sizeof(char),strlen(log),fp);
     fclose(fp);
+    pthread_mutex_unlock(&lock);
     
     
     return NULL;
