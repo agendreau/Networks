@@ -18,8 +18,7 @@
 
 #define SO_ORIGINAL_DST 80
 
-
-
+#define MAX(a,b) ((a)>(b)?(a):(b))
 
 /* read line from socket character by character */
 int readLine(char firstLine[], int sock) {
@@ -89,7 +88,84 @@ long readRequestProxy(int server_sock, char response[]) {
     }
     
 }
-
+/* Facilitates communication between the server and the client
+ * First checks if the requested file is cached
+ *  if it is and the cahce hasn't expired, the file is immmediately sent to the client
+ *  otherwise the resquest is sent to the server and the response sent back to the client
+ *  storing a copy in the cache
+ */
+long communicate(int client_sock,int proxy_sock,char * request, long content_length){
+    
+    char buf[1024];
+    ssize_t total_read_bytes=0;
+    ssize_t read_bytes;
+    ssize_t bytes_sent;
+    
+    char * status1 = "HTTP/1.1 500 Internal Server Error: Not responsive\r\n\r\n";
+    int j = send(proxy_sock,request,strlen(request),0);
+    if(content_length>0){//request has a body, send it to the server (even though it is meaningless)
+        read_bytes=0;
+        while(total_read_bytes<content_length){
+            read_bytes = recv(client_sock,buf,1024,0);
+            total_read_bytes+=read_bytes;
+            bytes_sent = send(proxy_sock,buf,read_bytes,0);
+        }
+        
+    }
+    if (j<=0){
+        printf("request failed to send\n");
+        send(client_sock,status1,strlen(status1),0);
+        return 0;
+    }
+    else {
+        printf("request sent: %d\n",j);
+        char response[4096];
+        memset(response, '\0', sizeof(response));
+        long response_content = readRequestProxy(proxy_sock,response);
+        printf("Response\n%s\n",response);
+        printf("Response content: %lu\n",response_content);
+        if(response_content==-1){
+            printf("error in receiving request from server\n");
+            send(client_sock,status1,strlen(status1),0);
+            return 0;
+        }
+        else if(response_content==-2){
+            printf("error in receiving request from server\n");
+            char * status = "HTTP/1.0 400 Bad Request: Invalid Content Length: \r\n\r\n";
+            send(client_sock,status,strlen(status),0);
+            return 0;
+        }
+        else {
+            //printf("we made it here\n");
+            bytes_sent=send(client_sock,response,strlen(response),0);
+            if(bytes_sent<=0){
+                printf("error in sending response to client\n");
+                return 0;
+            }
+            else {
+                total_read_bytes=0;
+                while(total_read_bytes<response_content){
+                    read_bytes = recv(proxy_sock, buf,1024,0);//send file
+                    if(read_bytes<=0){
+                        printf("error in reading file from server\n");
+                        return 0;
+                    }
+                    total_read_bytes+=read_bytes;
+                    bytes_sent = send(client_sock,buf,read_bytes,0);
+                    if(bytes_sent<=0){
+                        printf("error in sending file to client\n");
+                        return 0;
+                    }
+                }
+                return total_read_bytes;
+                //printf("out of while\n");
+            }
+        }
+    }
+    
+    
+    
+}
 
 
 /* Reads the request from the client
@@ -139,6 +215,131 @@ long readRequest(int sock,char request[]) {
     }
     
 }
+
+
+/* Processes the client request
+ * Reads the request
+ * Checks for errors in request and sends back the correct error message
+ * Closes the connection immediately after message is passed through the server and back to the client
+ * Parses the request, host, uri, and port
+ */
+
+void processHTTPRequest(int client_sock,int server_sock,long * total_bytes_received,long * total_bytes_sent) { //,char *document_root) {
+    
+    
+    char request[4096];
+    char host[128];
+    char port[64];
+    char uri[1024];
+    char status1[1024];
+    
+    
+    memset(request, '\0', 4096);
+    memset(host, '\0', 128);
+    memset(uri, '\0', 1024);
+    memset(port, '\0', 16);
+    memset(status1, '\0', 1024);
+    
+    
+    
+    int content_length = readRequest(client_sock,request);
+    
+    printf("Request\n%s\n",request);
+    //check for errors
+    if(content_length==-1){
+        printf("we want to close the socket on an empty request call\n");
+        return;
+       
+    }
+    
+    
+    /* Am I an GET method? */
+    if(strncmp(request,"GET",3)!=0 &&
+       strncmp(request,"get",3)!=0 &&
+       strncmp(request,"Get",3)!=0){
+        printf("Bad Method\n");
+        sprintf(status1,"HTTP/1.0 400 Bad Request: Invalid Method: Not Get\r\n\r\n");
+        send(client_sock,status1,strlen(status1),0);
+        printf("we want to close the socket on bad method request\n");
+        
+        return;
+        //break;
+    }
+    
+    *total_bytes_received = communicate(client_sock,server_sock,request,content_length);
+    *total_bytes_sent = strlen(request)+content_length;
+    
+    
+    
+   
+    
+    
+    
+}
+
+void processSSHRequest(int client_sock,int server_sock,long * total_bytes_received,long * total_bytes_sent){
+    int select_client;
+    //int select_server;
+    
+    struct timeval tv;
+    fd_set set_client;
+    //fd_set set_server;
+    
+    FD_ZERO(&set_client);
+    //FD_ZERO(&set_server);
+    char buf[1024];
+    memset(buf, '\0', 1024);
+    long bytes_client=0;
+    long bytes_server=0;
+    
+    long tr=0;
+    long ts=0;
+    
+    
+    while(1){
+        FD_ZERO(&set_client);
+        FD_SET(client_sock,&set_client);
+        FD_SET(server_sock,&set_client);
+        tv.tv_sec = 10;
+        tv.tv_usec = 0;
+        
+        select_client = select(MAX(client_sock,server_sock)+1,&set_client,NULL,NULL,&tv);
+        //printf("fdset: %d\n",selRet);
+        //selRet=2; //for testing error 500
+        if(select_client==0) {//timeout :(
+            printf("we timed out.\n");
+            break;
+        }
+        
+        else if(select_client==1){
+            if(FD_ISSET(client_sock,&set_client)){
+                bytes_client = recv(client_sock,buf,1024,0);
+                send(server_sock,buf,bytes_client,0);
+                ts+=bytes_client;
+            }
+            if(FD_ISSET(server_sock,&set_client)){
+                bytes_server = recv(server_sock,buf,1024,0);
+                send(client_sock,buf,bytes_server,0);
+                tr+=bytes_server;
+            }
+        }
+        
+        else if(select_client<0){
+            printf("error in selecting socket from set\n");
+            break;
+        }
+        
+    }
+    *total_bytes_sent=ts;
+    *total_bytes_received=tr;
+
+    
+}
+
+void processFTPRequest(int client_sock,int server_sock,long * total_bytes_received,long * total_bytes_sent){
+    processSSHRequest(client_sock,server_sock,total_bytes_received,total_bytes_sent);
+}
+
 
 
 /* Processes the client request
@@ -202,106 +403,75 @@ void *processRequest(void *s) { //,char *document_root) {
     printf( "Client Destination: %s:%hu\n", inet_ntoa(dest_addr.sin_addr), ntohs(dest_addr.sin_port));
     
     
-    // Now connect to the server
-    if (connect(server_sock, (struct sockaddr *)&dest_addr, dest_len) < 0) {
-        printf("ERROR connecting to server \n");
-        //exit(1);
+    int port = ntohs(dest_addr.sin_port);
+    
+    struct tm *ptr;
+    time_t lt;
+    char str[100];
+    lt = time(NULL);
+    ptr = localtime(&lt);
+
+    strftime(str, 100, "It is now %D %H:%M:%S", ptr);
+    
+    long total_bytes_sent=0;
+    long total_bytes_received=0;
+
+    
+    if(port==22) {//ssh
+        if (connect(server_sock, (struct sockaddr *)&dest_addr, dest_len) < 0) {
+            printf("ERROR connecting to ssh server \n");
+            processSSHRequest(client_sock,server_sock,&total_bytes_received,&total_bytes_sent);
+            close(client_sock);
+            close(server_sock);
+            
+            //exit(1);
+        }
     }
     
-    int select_client;
-    //int select_server;
-    
-    struct timeval tv;
-    fd_set set_client;
-    //fd_set set_server;
-    
-    FD_ZERO(&set_client);
-    //FD_ZERO(&set_server);
-    char buf[1024];
-    memset(buf, '\0', 1024);
-
-    
-    while(1){
-        FD_ZERO(&set_client);
-        FD_SET(client_sock,&set_client);
-        FD_SET(server_sock,&set_client);
-        tv.tv_sec = 10;
-        tv.tv_usec = 0;
-        
-        select_client = select(fmax(client_sock,server_sock)+1,&set_client,NULL,NULL,&tv);
-        //printf("fdset: %d\n",selRet);
-        //selRet=2; //for testing error 500
-        if(select_client==0) {//timeout :(
-            printf("we timed out.\n");
-            break;
+    else if(port==21) {//ftp
+        if (connect(server_sock, (struct sockaddr *)&dest_addr, dest_len) < 0) {
+            printf("ERROR connecting to ftp server \n");
+            processFTPRequest(client_sock,server_sock,&total_bytes_received,&total_bytes_sent);
+            close(client_sock);
+            close(server_sock);
+            
+            //exit(1);
         }
-        
-        else if(select_client==1){
-            if(FD_ISSET(client_sock,&set_client)){
-                long bytes_read = recv(client_sock,buf,1024,0);
-                send(server_sock,buf,bytes_read,0);
-            }
-            if(FD_ISSET(server_sock,&set_client)){
-                long bytes_read = recv(server_sock,buf,1024,0);
-                send(client_sock,buf,bytes_read,0);
-            }
+    }
+    
+    else if(port==8080) {//my webserver
+        if (connect(server_sock, (struct sockaddr *)&dest_addr, dest_len) < 0) {
+            printf("ERROR connecting to http server \n");
+            processHTTPRequest(client_sock,server_sock,&total_bytes_received,&total_bytes_sent);
+            close(client_sock);
+            close(server_sock);
+            
+            //exit(1);
         }
+    }
+    
+    else { //invalid port number
+        char * status = "Invalid Connection Port\n";
+        send(client_sock,status,strlen(status),0);
+        close(client_sock);
+        close(server_sock);
+        
         
     }
     
-    /*while(1){
-        FD_ZERO(&set_server);
-        FD_SET(server_sock,&set_server);
-        tv.tv_sec = 10;
-        tv.tv_usec = 0;
-        
-        select_server = select(server_sock+1,&set_server,NULL,NULL,&tv);
-        //printf("fdset: %d\n",selRet);
-        //selRet=2; //for testing error 500
-        if(select_server==0) {//timeout :(
-            printf("we timed out.\n");
-            break;
-        }
-        
-        else if(select_server==1){
-            long bytes_read = recv(server_sock,buf,1024,0);
-            send(client_sock,buf,bytes_read,0);
-        }
-
-        
-    }*/
     
-    //Communicate between the server and the client
+    //clean up
+    snprintf(comm, sizeof(comm), "iptables -t nat -D POSTROUTING -p tcp -j SNAT --sport %hu --to-source %s", ntohs(proxy_addr.sin_port),inet_ntoa(client_addr.sin_addr));
+    system(comm);
     
-    /*char request[4096];
-    memset(request, '\0', 4096);
-    int content_length = readRequest(client_sock,request);
-    printf("Request\n%s\n",request);
-    int sent = send(server_sock,request,strlen(request),0);
-    printf("success: %d\n",sent);
+    FILE *fp = fopen("proxy.log","a");
+    char log[2048];
+    sprintf(log,"%s %s %hu %s %hu %lu %lu\n",str,inet_ntoa(client_addr.sin_addr),
+            ntohs(client_addr.sin_port),inet_ntoa(dest_addr.sin_addr),ntohs(dest_addr.sin_port),
+            total_bytes_sent,total_bytes_received);
+    fwrite(log,sizeof(char),strlen(log),fp);
+    fclose(fp);
     
-    char response[4096];
-    memset(response, '\0', sizeof(response));
-    long response_content = readRequestProxy(server_sock,response);
-    printf("Response\n%s\n",response);
-    printf("Response content: %lu\n",response_content);
-    send(client_sock,response,strlen(response),0);
-    
-    char buf[1025];
-    size_t total_read_bytes=0;
-    size_t read_bytes=0;
-    while(total_read_bytes<response_content){
-        read_bytes = recv(server_sock, buf,1024,0);//send file
-        total_read_bytes+=read_bytes;
-        send(client_sock,buf,read_bytes,0);
-    }*/
-
-
-    
-    
-    close(server_sock);
-    
-    close(client_sock);
     
     return NULL;
     
@@ -376,6 +546,8 @@ int main(int argc, char *argv[]){
         char comm[1000];
         snprintf(comm, sizeof(comm), "iptables -t nat -A PREROUTING -p tcp -i eth0 -j DNAT --to 192.168.0.1:%s", argv[1]);
         system(comm);
+        //FILE *fp = fopen("proxy.log","w"); //create a new one for each time running server
+        //fclose(fp);
         run_server(atoi(argv[1]));
     }
     return 0;
