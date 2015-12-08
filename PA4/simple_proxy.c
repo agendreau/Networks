@@ -316,11 +316,13 @@ void processSSHRequest(int client_sock,int server_sock,long * total_bytes_receiv
                 bytes_client = recv(client_sock,buf,1024,0);
                 send(server_sock,buf,bytes_client,0);
                 ts+=bytes_client;
+		printf("request buffer: %s\n",buf);
             }
             if(FD_ISSET(server_sock,&set_client)){
                 bytes_server = recv(server_sock,buf,1024,0);
                 send(client_sock,buf,bytes_server,0);
                 tr+=bytes_server;
+		printf("response buffer: %s\n",buf);
             }
         }
         
@@ -404,6 +406,7 @@ void *processRequest(void *s) { //,char *document_root) {
     
     
     int port = ntohs(dest_addr.sin_port);
+    printf("port number: %d\n",port==8080);
     
     struct tm *ptr;
     time_t lt;
@@ -420,35 +423,41 @@ void *processRequest(void *s) { //,char *document_root) {
     if(port==22) {//ssh
         if (connect(server_sock, (struct sockaddr *)&dest_addr, dest_len) < 0) {
             printf("ERROR connecting to ssh server \n");
-            processSSHRequest(client_sock,server_sock,&total_bytes_received,&total_bytes_sent);
-            close(client_sock);
-            close(server_sock);
+        }    
+        else
+        processSSHRequest(client_sock,server_sock,&total_bytes_received,&total_bytes_sent);
+        close(client_sock);
+        close(server_sock);
             
             //exit(1);
-        }
+        
     }
     
     else if(port==21) {//ftp
-        if (connect(server_sock, (struct sockaddr *)&dest_addr, dest_len) < 0) {
+        if (connect(server_sock, (struct sockaddr *)&dest_addr, dest_len) < 0) 
             printf("ERROR connecting to ftp server \n");
-            processFTPRequest(client_sock,server_sock,&total_bytes_received,&total_bytes_sent);
-            close(client_sock);
-            close(server_sock);
+        else     
+	processFTPRequest(client_sock,server_sock,&total_bytes_received,&total_bytes_sent);
+        close(client_sock);
+        close(server_sock);
             
             //exit(1);
-        }
+        
     }
     
     else if(port==8080) {//my webserver
+        printf("in http request\n");
         if (connect(server_sock, (struct sockaddr *)&dest_addr, dest_len) < 0) {
             printf("ERROR connecting to http server \n");
-            processHTTPRequest(client_sock,server_sock,&total_bytes_received,&total_bytes_sent);
-            close(client_sock);
-            close(server_sock);
+	}
+        else
+        processHTTPRequest(client_sock,server_sock,&total_bytes_received,&total_bytes_sent);
+        close(client_sock);
+        close(server_sock);
             
             //exit(1);
-        }
-    }
+	}
+    
     
     else { //invalid port number
         char * status = "Invalid Connection Port\n";
