@@ -253,7 +253,7 @@ int main(int argc, char *argv[]){
     else {
         //Clear nat tables and then add DNAT
         int port = atoi(argv[1]);
-        char clear = "iptables -t nat -F";
+        char * clear = "iptables -t nat -F";
         char comm[1000];
         snprintf(comm, sizeof(comm), "iptables -t nat -A PREROUTING -p tcp -i eth0 -j DNAT --to 192.168.0.1:%d", port);
         system(clear); //clear any prerouting rules, we only want ours
